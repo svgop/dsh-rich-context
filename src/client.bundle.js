@@ -31,6 +31,19 @@ window.__ModuleLoader__.load({
 			"sources.reset": "Reset to plain file",
 			"sources.not_found": "not found",
 			"sources.lines": "lines",
+			"tab.prompts": "Prompts",
+			"tab.prompts.hint": "Reusable prompt snippets — type @name in chat to insert one",
+			"prompts.new": "New prompt",
+			"prompts.name": "Name (lowercase-with-dashes)",
+			"prompts.body": "Prompt text",
+			"prompts.save": "Save",
+			"prompts.delete": "Delete",
+			"prompts.empty": "No prompts yet — create one; it becomes @name in the composer.",
+			"prompts.confirmDelete": "Delete this prompt?",
+			"prompts.updated": "updated",
+			"prompts.dockHint": "Type @name in the composer to insert a prompt",
+			"prompts.copy": "Copy",
+			"prompts.copied": "copied",
 		};
 		const zh = {
 			"entry.label": "上下文",
@@ -58,6 +71,18 @@ window.__ModuleLoader__.load({
 			"sources.reset": "重置为普通文件",
 			"sources.not_found": "未找到",
 			"sources.lines": "行",
+			"tab.prompts": "提示词",
+			"tab.prompts.hint": "可复用提示词—在聊天框输入 @name 插入",
+			"prompts.new": "新建提示词",
+			"prompts.name": "名字（小写加短横）",
+			"prompts.body": "提示词正文",
+			"prompts.save": "保存",
+			"prompts.delete": "删除",
+			"prompts.empty": "还没有提示词—创建一个，之后在输入框用 @name 插入。",
+			"prompts.confirmDelete": "删除这个提示词？",
+			"prompts.dockHint": "在输入框输入 @name 即可插入提示词",
+			"prompts.copy": "复制",
+			"prompts.copied": "已复制",
 		};
 		const lang = (typeof navigator !== "undefined" && /^(zh)/i.test(navigator.language ?? "")) ? "zh" : "en";
 		const dict = { en, zh };
@@ -110,7 +135,30 @@ window.__ModuleLoader__.load({
 .rcx-saveBtn{appearance:none;background:0 0;border:none;border-left:1px solid var(--dsw-alias-border-l1);padding:9px 20px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .rcx-saveBtn:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .rcx-saveBtn:disabled{opacity:.45;cursor:default}
-.rcx-saveDirty{color:var(--dsw-alias-state-business-primary);font-weight:500}`;
+.rcx-saveDirty{color:var(--dsw-alias-state-business-primary);font-weight:500}
+.rcx-prompts{display:flex;flex-direction:column;min-height:0;flex:1}
+.rcx-promptList{max-height:180px;overflow:auto;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.rcx-promptRow{display:flex;align-items:center;gap:10px;padding:6px 14px;cursor:pointer}
+.rcx-promptRow:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.rcx-promptForm{display:flex;flex-direction:column;gap:8px;padding:10px 14px;flex:1;min-height:0}
+.rcx-promptNameInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:16px;font-family:ui-monospace,monospace;padding:4px 8px;border-radius:6px;outline:none}
+.rcx-promptNameInput:focus{border-color:var(--dsw-alias-state-business-primary)}
+.rcx-promptBody{flex:1;min-height:120px;resize:vertical;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;padding:8px 10px;border-radius:6px;outline:none}
+.rcx-promptBody:focus{border-color:var(--dsw-alias-state-business-primary)}
+.rcx-promptActions{display:flex;align-items:center;gap:8px}
+.rcx-dockRow{box-sizing:border-box;width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));max-width:calc(var(--dsh-composer-card-max-width) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-specific-tip);border-radius:12px;flex:none;margin:0 auto;display:flex;align-items:center;gap:4px;padding:2px 6px;overflow-x:auto;scrollbar-width:none}
+.rcx-dockRow::-webkit-scrollbar{display:none}
+.rcx-dockLabel{flex:none;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px;padding:0 2px 0 4px;white-space:nowrap}
+.rcx-dockChip{flex:none;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;line-height:14px;padding:3px 9px;border-radius:999px;cursor:pointer}
+.rcx-dockChip:hover{color:var(--dsw-alias-label-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)}
+.rcx-dockEmpty{flex:1;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px;padding:2px 0}
+.rcx-promptScrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}
+.rcx-promptCard{width:min(560px,calc(100vw - 48px));max-height:min(70vh,640px);display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-specific-tip);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.rcx-promptCardHead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.rcx-promptCardTitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary)}
+.rcx-promptCardBody{flex:1;overflow:auto;padding:12px 14px;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;white-space:pre-wrap;color:var(--dsw-alias-label-secondary)}
+.rcx-promptCardFoot{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px}
+.rcx-promptCopy{margin-left:auto}`;
 		const tagId = "dsh-rich-context/panel.css";
 		if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css="${tagId}"]`) === null) {
 			const tag = document.createElement("style");
@@ -137,6 +185,24 @@ window.__ModuleLoader__.load({
 			const res = await fetch(`${API}/file`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 			return res.json();
 		}
+		async function fetchPrompts() {
+			const res = await fetch(`${API}/prompts`, { cache: "no-store" });
+			return res.json();
+		}
+		async function mutatePrompt(payload) {
+			const res = await fetch(`${API}/prompts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+			return res.json();
+		}
+		// Shared prompt cache: the dock row, the @ trigger source, and the
+		// panel all read one copy; 30s TTL keeps composer typing cheap.
+		const promptCache = { at: 0, list: [] };
+		async function getPrompts(force) {
+			if (force !== true && Date.now() - promptCache.at < 30_000) return promptCache.list;
+			const body = await fetchPrompts();
+			if (body.ok === true) { promptCache.at = Date.now(); promptCache.list = body.prompts; }
+			return promptCache.list;
+		}
+		function invalidatePrompts() { promptCache.at = 0; }
 		//#endregion
 		//#region lib/sidebar.js
 		const ENTRY_ATTR = "data-dsh-rich-context-entry";
@@ -322,6 +388,10 @@ window.__ModuleLoader__.load({
 			tabWorkspace.type = "button";
 			tabWorkspace.className = "rcx-tab";
 			tabWorkspace.textContent = t("tab.workspace");
+			const tabPrompts = document.createElement("button");
+			tabPrompts.type = "button";
+			tabPrompts.className = "rcx-tab";
+			tabPrompts.textContent = t("tab.prompts");
 			tabHintEl = document.createElement("span");
 			tabHintEl.className = "rcx-tabHint";
 			const setTab = (next) => {
@@ -329,14 +399,19 @@ window.__ModuleLoader__.load({
 				customPath = null;
 				tabGlobal.className = next === "global" ? "rcx-tab rcx-tabOn" : "rcx-tab";
 				tabWorkspace.className = next === "workspace" ? "rcx-tab rcx-tabOn" : "rcx-tab";
-				tabHintEl.textContent = next === "global" ? t("tab.global.hint") : t("tab.workspace.hint");
+				tabPrompts.className = next === "prompts" ? "rcx-tab rcx-tabOn" : "rcx-tab";
+				tabHintEl.textContent = next === "global" ? t("tab.global.hint") : next === "prompts" ? t("tab.prompts.hint") : t("tab.workspace.hint");
 				pickerEl.style.display = next === "workspace" ? "" : "none";
 				sourcesEl.style.display = next === "global" ? "" : "none";
-				loadFile();
+				editorWrap.style.display = next === "prompts" ? "none" : "";
+				promptsEl.style.display = next === "prompts" ? "" : "none";
+				if (next === "prompts") loadPrompts();
+				else loadFile();
 			};
 			tabGlobal.addEventListener("click", () => setTab("global"));
 			tabWorkspace.addEventListener("click", () => setTab("workspace"));
-			tabs.append(tabGlobal, tabWorkspace, tabHintEl);
+			tabPrompts.addEventListener("click", () => setTab("prompts"));
+			tabs.append(tabGlobal, tabWorkspace, tabPrompts, tabHintEl);
 			card.append(tabs);
 
 			// Sources section (Global tab only) — scan + switch AGENTS.md default
@@ -414,6 +489,120 @@ window.__ModuleLoader__.load({
 			};
 			loadSources();
 
+			// Prompts tab section: list + inline editor, one markdown file per
+			// prompt on the host. The chat-side surfaces (@ trigger, dock row)
+			// read the same cache this editor invalidates.
+			let promptsEl = document.createElement("div");
+			promptsEl.className = "rcx-prompts";
+			promptsEl.style.display = "none";
+			const promptsHead = document.createElement("div");
+			promptsHead.className = "rcx-sourcesHead";
+			const promptsTitle = document.createElement("span");
+			promptsTitle.className = "rcx-sourcesTitle";
+			promptsTitle.textContent = t("tab.prompts");
+			const promptsNew = document.createElement("button");
+			promptsNew.type = "button";
+			promptsNew.className = "rcx-sourceBtn";
+			promptsNew.textContent = t("prompts.new");
+			promptsHead.append(promptsTitle, promptsNew);
+			const promptList = document.createElement("div");
+			promptList.className = "rcx-promptList";
+			const promptForm = document.createElement("div");
+			promptForm.className = "rcx-promptForm";
+			const promptName = document.createElement("input");
+			promptName.className = "rcx-promptNameInput";
+			promptName.placeholder = t("prompts.name");
+			promptName.spellcheck = false;
+			const promptBody = document.createElement("textarea");
+			promptBody.className = "rcx-promptBody";
+			promptBody.placeholder = t("prompts.body");
+			promptBody.spellcheck = false;
+			const promptActions = document.createElement("div");
+			promptActions.className = "rcx-promptActions";
+			const promptSave = document.createElement("button");
+			promptSave.type = "button";
+			promptSave.className = "rcx-sourceBtn";
+			promptSave.textContent = t("prompts.save");
+			const promptDelete = document.createElement("button");
+			promptDelete.type = "button";
+			promptDelete.className = "rcx-sourceBtn";
+			promptDelete.textContent = t("prompts.delete");
+			const promptStatus = document.createElement("span");
+			promptStatus.className = "rcx-sourceMeta";
+			promptActions.append(promptDelete, promptSave, promptStatus);
+			promptForm.append(promptName, promptBody, promptActions);
+			promptsEl.append(promptsHead, promptList, promptForm);
+			card.append(promptsEl);
+
+			let selectedSlug = null;
+			const setPromptStatus = (text, isError) => {
+				promptStatus.textContent = text ?? "";
+				promptStatus.style.color = isError === true ? "var(--dsw-alias-state-error-primary)" : "";
+			};
+			const clearPromptForm = () => {
+				selectedSlug = null;
+				promptName.value = "";
+				promptBody.value = "";
+				promptDelete.style.display = "none";
+				setPromptStatus("");
+			};
+			const loadPrompts = () => {
+				getPrompts(true).then((list) => {
+					promptList.innerHTML = "";
+					if (list.length === 0) {
+						const emptyRow = document.createElement("div");
+						emptyRow.className = "rcx-sourceLabel";
+						emptyRow.style.padding = "10px 14px";
+						emptyRow.textContent = t("prompts.empty");
+						promptList.append(emptyRow);
+					}
+					for (const prompt of list) {
+						const row = document.createElement("div");
+						row.className = "rcx-promptRow" + (prompt.slug === selectedSlug ? " rcx-sourceOn" : "");
+						const label = document.createElement("span");
+						label.className = "rcx-sourceLabel";
+						label.textContent = prompt.name;
+						const meta = document.createElement("span");
+						meta.className = "rcx-sourceMeta";
+						meta.textContent = `@${prompt.slug}`;
+						row.append(label, meta);
+						row.addEventListener("click", () => {
+							selectedSlug = prompt.slug;
+							promptName.value = prompt.slug;
+							promptBody.value = prompt.body;
+							promptDelete.style.display = "";
+							setPromptStatus("");
+							for (const other of promptList.children) other.classList.remove("rcx-sourceOn");
+							row.classList.add("rcx-sourceOn");
+						});
+						promptList.append(row);
+					}
+				}).catch(() => {});
+			};
+			promptsNew.addEventListener("click", () => { clearPromptForm(); promptName.focus(); });
+			promptDelete.addEventListener("click", () => {
+				if (selectedSlug === null || !window.confirm(t("prompts.confirmDelete"))) return;
+				mutatePrompt({ op: "delete", slug: selectedSlug }).then((body) => {
+					invalidatePrompts();
+					if (body.ok !== true) { setPromptStatus(body.error ?? t("error.generic"), true); return; }
+					clearPromptForm();
+					loadPrompts();
+				});
+			});
+			promptSave.addEventListener("click", () => {
+				const slug = promptName.value.trim().toLowerCase().replaceAll(" ", "-");
+				if (slug === "" || promptBody.value.trim() === "") { setPromptStatus(t("error.generic"), true); return; }
+				mutatePrompt({ op: "save", slug, body: promptBody.value }).then((body) => {
+					invalidatePrompts();
+					if (body.ok !== true) { setPromptStatus(body.error ?? t("error.generic"), true); return; }
+					selectedSlug = slug;
+					promptName.value = slug;
+					promptDelete.style.display = "";
+					setPromptStatus(t("prompts.updated"));
+					loadPrompts();
+				});
+			});
+
 			// Workspace picker
 			pickerEl = document.createElement("div");
 			pickerEl.className = "rcx-picker";
@@ -487,9 +676,112 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/index.js
-		const inject = ["locale"];
+		const inject = ["locale", "slots", "inputTriggers"];
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { en, zh }), "rich-context: dictionaries");
+
+			// Chat access, surface 1: the native composer trigger pipeline.
+			// Typing @<query> offers the stored prompts; a pick inserts the
+			// full prompt body at the trigger span (PickOutcome {text}).
+			ctx.inject(["inputTriggers"], (scope) => {
+				ctx.effect(() => scope.inputTriggers.registerSource({
+					trigger: "@",
+					name: "prompts",
+					order: 20,
+					async candidates(_session, req) {
+						const query = String(req?.query ?? "").toLowerCase();
+						const list = await getPrompts();
+						return list
+							.filter((prompt) => query === "" || prompt.slug.includes(query) || prompt.name.toLowerCase().includes(query))
+							.slice(0, 8)
+							.map((prompt) => ({
+								name: prompt.name,
+								description: prompt.body.replace(/\s+/g, " ").slice(0, 80),
+								hint: "@" + prompt.slug,
+								value: prompt.slug,
+							}));
+					},
+					onPick(pick) {
+						const slug = pick?.candidate?.value;
+						const prompt = promptCache.list.find((entry) => entry.slug === slug);
+						if (prompt === undefined) return undefined;
+							return { text: prompt.body + "\\n" };
+						},
+				}), "rich-context: @prompts trigger source");
+			});
+
+			// Chat access, surface 2: a compact dock row of prompt chips
+			// (single line, truncated with ellipsis; click opens the full
+			// prompt in a themed dialog with a copy action).
+			ctx.inject(["slots"], () => {
+				const react = require("react");
+				const jsxRuntime = require("react/jsx-runtime");
+				const h = (type, props, ...children) => {
+					const base = props ?? {};
+					if (children.length === 0) return jsxRuntime.jsx(type, base);
+					return jsxRuntime.jsx(type, { ...base, children: children.length === 1 ? children[0] : children });
+				};
+				const useState = react.useState;
+				const useEffect = react.useEffect;
+
+				function PromptDialog({ prompt, onClose, t }) {
+					const [copied, setCopied] = useState(false);
+					useEffect(() => {
+						const onKey = (event) => { if (event.key === "Escape") onClose(); };
+						document.addEventListener("keydown", onKey, true);
+						return () => document.removeEventListener("keydown", onKey, true);
+					}, [onClose]);
+					return h("div", { className: "rcx-promptScrim", onClick: (event) => { if (event.target === event.currentTarget) onClose(); } },
+						h("section", { role: "dialog", "aria-label": prompt.name, className: "rcx-promptCard" },
+							h("div", { className: "rcx-promptCardHead" },
+								h("span", { className: "rcx-promptCardTitle" }, "@" + prompt.slug),
+								h("button", { type: "button", className: "rcx-closeBtn", "aria-label": t("action.close"), onClick: onClose }, "×"),
+							),
+							h("div", { className: "rcx-promptCardBody" }, prompt.body),
+							h("div", { className: "rcx-promptCardFoot" },
+								t("prompts.dockHint"),
+								h("button", {
+									type: "button", className: "rcx-sourceBtn",
+									onClick: () => {
+										navigator.clipboard?.writeText(prompt.body).then(() => {
+											setCopied(true);
+											setTimeout(() => setCopied(false), 1500);
+										}).catch(() => {});
+									},
+								}, copied === true ? t("prompts.copied") : t("prompts.copy")),
+							),
+						),
+					);
+				}
+
+				function PromptDock({ t }) {
+					const [prompts, setPrompts] = useState([]);
+					const [open, setOpen] = useState(null);
+					useEffect(() => {
+						let cancelled = false;
+						getPrompts().then((list) => { if (cancelled !== true) setPrompts([...list]); });
+						return () => { cancelled = true; };
+					}, []);
+					return h(react.Fragment, null,
+						h("div", { className: "rcx-dockRow", role: "toolbar", "aria-label": t("tab.prompts") },
+							h("span", { className: "rcx-dockLabel" }, t("tab.prompts")),
+							prompts.length === 0
+								? h("span", { className: "rcx-dockEmpty" }, t("prompts.dockHint"))
+								: prompts.map((prompt) => h("button", {
+									key: prompt.slug, type: "button", className: "rcx-dockChip",
+									title: prompt.name, onClick: () => { setOpen(prompt) },
+								}, prompt.name)),
+						),
+						open !== null ? h(PromptDialog, { prompt: open, onClose: () => { setOpen(null) }, t }) : null);
+				}
+
+				ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+					name: "conversation.input.dock",
+					id: "rich-context-prompts",
+					order: 4,
+					locale: NS,
+				}, PromptDock));
+			});
 
 			let open = false;
 			let listeners = new Set();

@@ -13,7 +13,7 @@
  *
  * Zero runtime dependencies: node builtins only.
  */
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, lstatSync, symlinkSync, readlinkSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, lstatSync, symlinkSync, readlinkSync, statSync as statSyncNode } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -23,6 +23,8 @@ const ACTION_LIMIT = 2_000_000
 const DSH_HOME = process.env.DSH_HOME ?? join(homedir(), '.dsh')
 const GLOBAL_FILE = join(DSH_HOME, 'AGENTS.md')
 const TEMPLATE_DIR = join(DSH_HOME, 'rich-context', 'templates')
+/** One markdown file per stored prompt: slug = filename, body = content. */
+const PROMPT_DIR = join(DSH_HOME, 'rich-context', 'prompts')
 const SESSIONS_DIR = join(DSH_HOME, 'sessions')
 /** Known tool directories that use AGENTS.md — scanned on demand. */
 const KNOWN_SOURCES = [
@@ -130,6 +132,28 @@ function slugToPath(slug) {
   return decoded.startsWith("/") ? decoded : `/${decoded}`
 }
 
+/** Slug a prompt file may carry (ascii kebab, bounded). */
+const PROMPT_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
+
+/** List stored prompts: slug, display name, body, size, mtime. */
+function promptFiles() {
+  if (!existsSync(PROMPT_DIR)) return []
+  return readdirSync(PROMPT_DIR)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => {
+      const slug = name.replace(/\.md$/, '')
+      const full = join(PROMPT_DIR, name)
+      const stat = statOf(full)
+      return { slug, name: slug.replaceAll('-', ' '), body: readFileSync(full, 'utf8'), size: stat?.size ?? 0, updatedAt: stat?.mtimeMs ?? 0 }
+    })
+    .sort((a, b) => a.slug < b.slug ? -1 : 1)
+}
+
+/** stat() or null; unreadable entries stay listed with zero metadata. */
+function statOf(path) {
+  try { return statSyncNode(path) } catch { return null }
+}
+
 function readFileOrNull(path) {
   try {
     return readFileSync(path, 'utf8')
@@ -212,6 +236,34 @@ export function apply(ctx) {
             workspaces: wsRoots,
             templates: [...BUILTIN_TEMPLATES, ...userTemplates()],
           })
+        },
+      },
+      {
+        kind: 'exact',
+        path: `${API_PREFIX}/prompts`,
+        handler: async (req, res) => {
+          if (!guard(req, res)) return
+          if (req.method === 'GET') { writeJson(res, 200, { ok: true, prompts: promptFiles() }); return }
+          if (req.method !== 'POST') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
+          let body
+          try { body = await readJsonBody(req, 64 * 1024) } catch (error) {
+            writeJson(res, 400, { ok: false, error: error?.message ?? 'bad-request' }); return
+          }
+          const slug = body?.slug
+          if (typeof slug !== 'string' || PROMPT_SLUG.test(slug) === false) {
+            writeJson(res, 400, { ok: false, error: 'prompt slug must be lowercase ascii letters, digits, and dashes (max 64)' }); return
+          }
+          if (body?.op === 'delete') {
+            const full = join(PROMPT_DIR, `${slug}.md`)
+            if (existsSync(full)) unlinkSync(full)
+            writeJson(res, 200, { ok: true, prompts: promptFiles() }); return
+          }
+          if (body?.op !== 'save' || typeof body.body !== 'string' || body.body.trim() === '' || body.body.length > 32_000) {
+            writeJson(res, 400, { ok: false, error: 'op=save requires a non-empty body (max 32,000 characters)' }); return
+          }
+          mkdirSync(PROMPT_DIR, { recursive: true })
+          writeFileSync(join(PROMPT_DIR, `${slug}.md`), body.body, 'utf8')
+          writeJson(res, 200, { ok: true, prompts: promptFiles() })
         },
       },
       {
