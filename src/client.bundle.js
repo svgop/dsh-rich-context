@@ -203,6 +203,18 @@ window.__ModuleLoader__.load({
 			return promptCache.list;
 		}
 		function invalidatePrompts() { promptCache.at = 0; }
+		// Subsequence hit: every query character appears in order (with gaps
+		// allowed), so "dp" finds "deploy-pipeline" and multi-word fragments
+		// match across slug, name, and body without exact substrings.
+		function subsequenceHit(query, haystack) {
+			let at = 0;
+			for (const ch of query) {
+				at = haystack.indexOf(ch, at);
+				if (at < 0) return false;
+				at += 1;
+			}
+			return true;
+		}
 		//#endregion
 		//#region lib/sidebar.js
 		const ENTRY_ATTR = "data-dsh-rich-context-entry";
@@ -676,112 +688,45 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/index.js
-		const inject = ["locale", "slots", "inputTriggers"];
+		const inject = ["locale", "inputTriggers"];
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { en, zh }), "rich-context: dictionaries");
 
-			// Chat access, surface 1: the native composer trigger pipeline.
-			// Typing @<query> offers the stored prompts; a pick inserts the
-			// full prompt body at the trigger span (PickOutcome {text}).
+			// Chat access: the native composer trigger pipeline. Typing
+			// @<query> offers the stored prompts (subsequence match over slug,
+			// name, and body); a pick inserts the full prompt body at the
+			// trigger span (PickOutcome {text}).
 			ctx.inject(["inputTriggers"], (scope) => {
 				ctx.effect(() => scope.inputTriggers.registerSource({
 					trigger: "@",
 					name: "prompts",
 					order: 20,
 					async candidates(_session, req) {
-						const query = String(req?.query ?? "").toLowerCase();
+						const query = String(req?.query ?? "").trim().toLowerCase();
 						const list = await getPrompts();
-						return list
-							.filter((prompt) => query === "" || prompt.slug.includes(query) || prompt.name.toLowerCase().includes(query))
-							.slice(0, 8)
-							.map((prompt) => ({
-								name: prompt.name,
-								description: prompt.body.replace(/\s+/g, " ").slice(0, 80),
-								hint: "@" + prompt.slug,
-								value: prompt.slug,
-							}));
+						if (list.length === 0) return [];
+						const scored = [];
+						for (const prompt of list) {
+							const hay = `${prompt.slug} ${prompt.name} ${prompt.body}`.toLowerCase();
+							if (query !== "" && subsequenceHit(query, hay) === false) continue;
+							scored.push(prompt);
+						}
+						return scored.slice(0, 8).map((prompt) => ({
+							name: prompt.name,
+							description: prompt.body.replace(/\s+/g, " ").slice(0, 80),
+							hint: "@" + prompt.slug,
+							value: prompt.slug,
+						}));
 					},
 					onPick(pick) {
 						const slug = pick?.candidate?.value;
 						const prompt = promptCache.list.find((entry) => entry.slug === slug);
 						if (prompt === undefined) return undefined;
-							return { text: prompt.body + "\\n" };
-						},
+						return { text: prompt.body + "\n" };
+					},
 				}), "rich-context: @prompts trigger source");
 			});
 
-			// Chat access, surface 2: a compact dock row of prompt chips
-			// (single line, truncated with ellipsis; click opens the full
-			// prompt in a themed dialog with a copy action).
-			ctx.inject(["slots"], () => {
-				const react = require("react");
-				const jsxRuntime = require("react/jsx-runtime");
-				const h = (type, props, ...children) => {
-					const base = props ?? {};
-					if (children.length === 0) return jsxRuntime.jsx(type, base);
-					return jsxRuntime.jsx(type, { ...base, children: children.length === 1 ? children[0] : children });
-				};
-				const useState = react.useState;
-				const useEffect = react.useEffect;
-
-				function PromptDialog({ prompt, onClose, t }) {
-					const [copied, setCopied] = useState(false);
-					useEffect(() => {
-						const onKey = (event) => { if (event.key === "Escape") onClose(); };
-						document.addEventListener("keydown", onKey, true);
-						return () => document.removeEventListener("keydown", onKey, true);
-					}, [onClose]);
-					return h("div", { className: "rcx-promptScrim", onClick: (event) => { if (event.target === event.currentTarget) onClose(); } },
-						h("section", { role: "dialog", "aria-label": prompt.name, className: "rcx-promptCard" },
-							h("div", { className: "rcx-promptCardHead" },
-								h("span", { className: "rcx-promptCardTitle" }, "@" + prompt.slug),
-								h("button", { type: "button", className: "rcx-closeBtn", "aria-label": t("action.close"), onClick: onClose }, "×"),
-							),
-							h("div", { className: "rcx-promptCardBody" }, prompt.body),
-							h("div", { className: "rcx-promptCardFoot" },
-								t("prompts.dockHint"),
-								h("button", {
-									type: "button", className: "rcx-sourceBtn",
-									onClick: () => {
-										navigator.clipboard?.writeText(prompt.body).then(() => {
-											setCopied(true);
-											setTimeout(() => setCopied(false), 1500);
-										}).catch(() => {});
-									},
-								}, copied === true ? t("prompts.copied") : t("prompts.copy")),
-							),
-						),
-					);
-				}
-
-				function PromptDock({ t }) {
-					const [prompts, setPrompts] = useState([]);
-					const [open, setOpen] = useState(null);
-					useEffect(() => {
-						let cancelled = false;
-						getPrompts().then((list) => { if (cancelled !== true) setPrompts([...list]); });
-						return () => { cancelled = true; };
-					}, []);
-					return h(react.Fragment, null,
-						h("div", { className: "rcx-dockRow", role: "toolbar", "aria-label": t("tab.prompts") },
-							h("span", { className: "rcx-dockLabel" }, t("tab.prompts")),
-							prompts.length === 0
-								? h("span", { className: "rcx-dockEmpty" }, t("prompts.dockHint"))
-								: prompts.map((prompt) => h("button", {
-									key: prompt.slug, type: "button", className: "rcx-dockChip",
-									title: prompt.name, onClick: () => { setOpen(prompt) },
-								}, prompt.name)),
-						),
-						open !== null ? h(PromptDialog, { prompt: open, onClose: () => { setOpen(null) }, t }) : null);
-				}
-
-				ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
-					name: "conversation.input.dock",
-					id: "rich-context-prompts",
-					order: 4,
-					locale: NS,
-				}, PromptDock));
-			});
 
 			let open = false;
 			let listeners = new Set();
