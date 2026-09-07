@@ -251,6 +251,9 @@ const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke
 			};
 			const loadFile = () => {
 				const scope = customPath !== null ? "custom" : tab;
+				// No workspace picked yet: nothing to read — a fetch here would
+				// 400 on the empty path and leave a stale error on the status line.
+				if (scope === "workspace" && workspace === "") { editorEl.value = ""; content = ""; saved = ""; updateDirty(); updatePath(); return; }
 				fetchFile(scope, workspace, customPath).then((body) => {
 					if (body.ok !== true) throw new Error(body.error);
 					content = body.content ?? "";
@@ -611,6 +614,12 @@ const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke
 			fetchState().then((body) => {
 				if (body.ok !== true) return;
 				state = body;
+				const placeholder = document.createElement("option");
+				placeholder.value = "";
+				placeholder.textContent = t("workspace.placeholder");
+				placeholder.disabled = true;
+				placeholder.selected = true;
+				selectEl.append(placeholder);
 				for (const slug of body.workspaces ?? []) {
 					const option = document.createElement("option");
 					option.value = slug;
