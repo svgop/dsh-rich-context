@@ -148,7 +148,7 @@ const WORKSPACE_SCRIPT = [
   '    logs = []',
   '    for base, _dirs, names in os.walk(project):',
   '        for name in names:',
-  '            if name == "session.jsonl" or name == "session.jsonl.zstd":',
+  '            if name.startswith("session") and (name.endswith(".jsonl") or name.endswith(".jsonl.zstd")):',
   '                p = os.path.join(base, name)',
   '                try: logs.append((os.path.getmtime(p), p))',
   '                except OSError: pass',
