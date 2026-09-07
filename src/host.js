@@ -14,6 +14,7 @@
  * Zero runtime dependencies: node builtins only.
  */
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, lstatSync, symlinkSync, readlinkSync, statSync as statSyncNode } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -132,6 +133,86 @@ function slugToPath(slug) {
   return decoded.startsWith("/") ? decoded : `/${decoded}`
 }
 
+// Workspace discovery: the sessions store is the portable truth. Each
+// --slug-- project directory under $DSH_HOME/sessions holds session files
+// whose first line (the header JSON) names the exact cwd. One python
+// process reads them all (zstd via the zstandard module when needed); the
+// slug-decode fallback below covers environments without python, with
+// existsSync arbitrating its separator ambiguity.
+const WORKSPACE_CACHE = { at: 0, list: [] }
+const WORKSPACE_SCRIPT = [
+  'import json, os, sys',
+  'root = sys.argv[1]',
+  'out = []',
+  'def newest_header(project):',
+  '    logs = []',
+  '    for base, _dirs, names in os.walk(project):',
+  '        for name in names:',
+  '            if name == "session.jsonl" or name == "session.jsonl.zstd":',
+  '                p = os.path.join(base, name)',
+  '                try: logs.append((os.path.getmtime(p), p))',
+  '                except OSError: pass',
+  '    for _mtime, path in sorted(logs, reverse=True):',
+  '        try:',
+  '            if path.endswith(".zstd"):',
+  '                import zstandard',
+  '                with open(path, "rb") as fh: raw = zstandard.ZstdDecompressor().stream_reader(fh).read(4096)',
+  '            else:',
+  '                with open(path, "rb") as fh: raw = fh.read(4096)',
+  '            line = raw.split(b"\\n", 1)[0].decode("utf-8", "replace")',
+  '            return json.loads(line).get("cwd")',
+  '        except Exception: continue',
+  '    return None',
+  'try: dirs = sorted(os.listdir(root), key=lambda d: os.path.getmtime(os.path.join(root, d)), reverse=True)[:80]',
+  'except OSError: dirs = []',
+  'for name in dirs:',
+  '    if not (name.startswith("--") and name.endswith("--")): continue',
+  '    cwd = newest_header(os.path.join(root, name))',
+  '    if isinstance(cwd, str) and cwd not in out: out.append(cwd)',
+  'print(json.dumps(out))',
+].join('\n')
+
+/** Newest-first workspace cwds straight from session headers (60s cache). */
+function workspacesFromSessionHeaders() {
+  if (Date.now() - WORKSPACE_CACHE.at < 60_000) return WORKSPACE_CACHE.list
+  const root = join(DSH_HOME, 'sessions')
+  let list = null
+  try {
+    const out = execFileSync('python', ['-c', WORKSPACE_SCRIPT, root], { encoding: 'utf8', timeout: 10_000, windowsHide: true })
+    const parsed = JSON.parse(out)
+    if (Array.isArray(parsed)) list = parsed.filter((entry) => typeof entry === 'string' && existsSync(entry))
+  } catch {
+    list = null
+  }
+  WORKSPACE_CACHE.list = list ?? []
+  WORKSPACE_CACHE.at = Date.now()
+  return WORKSPACE_CACHE.list
+}
+
+/** Reverse the session-dir slug escapes (~HEX) back to characters. */
+function decodeSlugChars(slug) {
+  return slug.replace(/~([0-9A-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+}
+
+/** Fallback for python-less environments: decode slugs, existsSync arbitrates. */
+function workspacesFromSlugs() {
+  const root = join(DSH_HOME, 'sessions')
+  let names = []
+  try { names = readdirSync(root).filter((name) => name.startsWith('--') && name.endsWith('--')) } catch { return [] }
+  const found = []
+  for (const name of names.slice(0, 80)) {
+    const slug = decodeSlugChars(name.slice(2, -2))
+    if (slug === '' || slug === 'root') continue
+    const driveLetter = /^([A-Za-z])(?=-|$)/.exec(slug)
+    const posix = `/${slug.replaceAll('-', '/')}`
+    const windows = driveLetter !== null ? `${driveLetter[1]}:\\${slug.slice(2).replaceAll('-', '\\')}` : null
+    for (const candidate of [windows, posix]) {
+      if (typeof candidate === 'string' && existsSync(candidate) && !found.includes(candidate)) { found.push(candidate); break }
+    }
+  }
+  return found
+}
+
 /** Slug a prompt file may carry (ascii kebab, bounded). */
 const PROMPT_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 
@@ -214,6 +295,8 @@ export function apply(ctx) {
           if (!guard(req, res)) return
           // Workspaces as real filesystem paths — scan known parent dirs for repos
           const wsRoots = []
+          for (const entry of workspacesFromSessionHeaders()) wsRoots.push(entry)
+          if (wsRoots.length === 0) for (const entry of workspacesFromSlugs()) wsRoots.push(entry)
           const scanDirs = ['/home/github', '/home/sysadmin', '/tmp']
           for (const scanDir of scanDirs) {
             if (!existsSync(scanDir)) continue
