@@ -1,0 +1,1 @@
+{"timestamp_utc": "2026-09-07T11:22:55.982981+00:00", "cwd": "E:\\Workspaces\\01_Projects\\01_Github\\dsh-plugins\\dsh-rich-context", "message": "dsh-rich-sync, dsh-startup-guard, dsh-negative-ledger expolain these plugins"}

@@ -13,9 +13,9 @@
  *
  * Zero runtime dependencies: node builtins only.
  */
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, lstatSync, symlinkSync, readlinkSync, statSync as statSyncNode } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, lstatSync, symlinkSync, readlinkSync, rmdirSync, statSync as statSyncNode } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { join, dirname } from 'node:path'
+import { join, dirname, basename } from 'node:path'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 
@@ -24,8 +24,16 @@ const ACTION_LIMIT = 2_000_000
 const DSH_HOME = process.env.DSH_HOME ?? join(homedir(), '.dsh')
 const GLOBAL_FILE = join(DSH_HOME, 'AGENTS.md')
 const TEMPLATE_DIR = join(DSH_HOME, 'rich-context', 'templates')
-/** One markdown file per stored prompt: slug = filename, body = content. */
-const PROMPT_DIR = join(DSH_HOME, 'rich-context', 'prompts')
+/**
+ * Prompts live as NATIVE user skills in $DSH_HOME/skills — the same root the
+ * harness's own skill-filesystem provider scans (source 'user-dsh', flat
+ * <slug>.md with name+description frontmatter). One library, two consumption
+ * paths: @name inserts the body in the composer, and every agent discovers
+ * the prompt as a real skill through the native catalog.
+ */
+const SKILLS_DIR = join(DSH_HOME, 'skills')
+/** Pre-alignment store (v0.7.x): migrated into the skills root on first touch. */
+const LEGACY_PROMPT_DIR = join(DSH_HOME, 'rich-context', 'prompts')
 const SESSIONS_DIR = join(DSH_HOME, 'sessions')
 /** Known tool directories that use AGENTS.md — scanned on demand. */
 const KNOWN_SOURCES = [
@@ -213,21 +221,95 @@ function workspacesFromSlugs() {
   return found
 }
 
-/** Slug a prompt file may carry (ascii kebab, bounded). */
+/** Slug a prompt/skill file may carry (ascii kebab, bounded) — also the
+ * frontmatter name we write, so the file is a valid native skill. */
 const PROMPT_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 
-/** List stored prompts: slug, display name, body, size, mtime. */
+/** Lenient YAML-frontmatter split: {name, description, body} or null when the file has none. */
+function parseSkillMarkdown(raw) {
+  if (typeof raw !== 'string' || raw.startsWith('---\n') === false && raw.startsWith('---\r\n') === false) return null
+  const end = raw.indexOf('\n---', raw.startsWith('---\r\n') ? 5 : 4)
+  if (end === -1) return null
+  const head = raw.slice(0, end)
+  const body = raw.slice(raw.indexOf('\n', end + 1) + 1)
+  const field = (key) => {
+    const match = new RegExp(`^${key}:\\s*(.*)$`, 'm').exec(head)
+    return match !== null ? match[1].trim().replace(/^["']|["']$/g, '') : undefined
+  }
+  return { name: field('name'), description: field('description'), body }
+}
+
+/** One native skill file: frontmatter (name + description) + body. */
+function writeSkillMarkdown(slug, description, body) {
+  const desc = description.trim() === '' ? deriveDescription(body) : description.trim()
+  return `---\nname: ${slug}\ndescription: ${desc.replace(/\n/g, ' ')}\n---\n\n${body.replace(/\s+$/, '')}\n`
+}
+
+/** Description fallback: the first non-empty body line, bounded for frontmatter. */
+function deriveDescription(body) {
+  const line = body.split('\n').map((entry) => entry.trim()).find((entry) => entry !== '') ?? 'prompt'
+  const clean = line.replace(/^#+\s*/, '').replace(/[*_`>#-]/g, '').trim()
+  return (clean === '' ? 'prompt' : clean).slice(0, 120)
+}
+
+/**
+ * One-time migration of the pre-alignment store: each legacy prompt becomes
+ * a native skill (description derived from its first line), the legacy file
+ * is removed after its new home is written, and the emptied directory goes.
+ * Idempotent: a legacy slug that already exists as a skill is left to the skill.
+ */
+function migrateLegacyPrompts() {
+  if (existsSync(LEGACY_PROMPT_DIR) === false) return
+  let names = []
+  try { names = readdirSync(LEGACY_PROMPT_DIR).filter((name) => name.endsWith('.md')) } catch { return }
+  for (const name of names) {
+    const slug = name.replace(/\.md$/, '')
+    if (PROMPT_SLUG.test(slug) === false) continue
+    const target = join(SKILLS_DIR, `${slug}.md`)
+    if (existsSync(target)) { try { unlinkSync(join(LEGACY_PROMPT_DIR, name)) } catch { /* keep */ } ; continue }
+    try {
+      const body = readFileSync(join(LEGACY_PROMPT_DIR, name), 'utf8')
+      mkdirSync(SKILLS_DIR, { recursive: true })
+      writeFileSync(target, writeSkillMarkdown(slug, '', body), 'utf8')
+      unlinkSync(join(LEGACY_PROMPT_DIR, name))
+    } catch { /* best-effort: the legacy file stays for the next attempt */ }
+  }
+  try { rmdirSync(LEGACY_PROMPT_DIR) } catch { /* still has files or ENOENT */ }
+}
+
+/**
+ * List prompt-skills from the native user skills root: flat <slug>.md files
+ * and <dir>/SKILL.md directories (the two shapes the harness's skill
+ * provider discovers). Bodies are served frontmatter-stripped so @name
+ * insertion and the editor see only the prompt text.
+ */
 function promptFiles() {
-  if (!existsSync(PROMPT_DIR)) return []
-  return readdirSync(PROMPT_DIR)
-    .filter((name) => name.endsWith('.md'))
-    .map((name) => {
-      const slug = name.replace(/\.md$/, '')
-      const full = join(PROMPT_DIR, name)
-      const stat = statOf(full)
-      return { slug, name: slug.replaceAll('-', ' '), body: readFileSync(full, 'utf8'), size: stat?.size ?? 0, updatedAt: stat?.mtimeMs ?? 0 }
+  migrateLegacyPrompts()
+  if (existsSync(SKILLS_DIR) === false) return []
+  const out = []
+  let entries = []
+  try { entries = readdirSync(SKILLS_DIR, { withFileTypes: true }) } catch { return [] }
+  for (const entry of entries) {
+    let full = null
+    let slug = null
+    if (entry.isFile() === true && entry.name.endsWith('.md')) { slug = entry.name.replace(/\.md$/, ''); full = join(SKILLS_DIR, entry.name) }
+    else if (entry.isDirectory() === true && existsSync(join(SKILLS_DIR, entry.name, 'SKILL.md'))) { slug = entry.name; full = join(SKILLS_DIR, entry.name, 'SKILL.md') }
+    else continue
+    const raw = readFileOrNull(full) ?? ''
+    const parsed = parseSkillMarkdown(raw)
+    const stat = statOf(full)
+    out.push({
+      slug,
+      // The display name humanizes the skill's slug-form frontmatter name
+      // (the catalog needs the slug form; people read the spaced form).
+      name: parsed?.name && parsed.name !== '' ? parsed.name.replaceAll('-', ' ') : slug.replaceAll('-', ' '),
+      description: parsed?.description ?? '',
+      body: parsed !== null ? parsed.body.trim() : raw.trim(),
+      size: stat?.size ?? 0,
+      updatedAt: stat?.mtimeMs ?? 0,
     })
-    .sort((a, b) => a.slug < b.slug ? -1 : 1)
+  }
+  return out.sort((a, b) => a.slug < b.slug ? -1 : 1)
 }
 
 /** stat() or null; unreadable entries stay listed with zero metadata. */
@@ -272,6 +354,11 @@ async function readJsonBody(req, limit) {
   }
   const raw = Buffer.concat(chunks).toString('utf8')
   return raw === '' ? undefined : JSON.parse(raw)
+}
+
+/** Absolute on any platform: posix leading slash OR a Windows drive root. */
+function isAbsoluteish(path) {
+  return path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:[\\/]/.test(path)
 }
 
 /** Route fence (exemplar posture): loopback socket + browser same-origin marker. */
@@ -337,15 +424,19 @@ export function apply(ctx) {
             writeJson(res, 400, { ok: false, error: 'prompt slug must be lowercase ascii letters, digits, and dashes (max 64)' }); return
           }
           if (body?.op === 'delete') {
-            const full = join(PROMPT_DIR, `${slug}.md`)
-            if (existsSync(full)) unlinkSync(full)
+            // Flat file or directory-shaped skill — remove whichever exists.
+            const flat = join(SKILLS_DIR, `${slug}.md`)
+            const dir = join(SKILLS_DIR, slug, 'SKILL.md')
+            if (existsSync(flat)) unlinkSync(flat)
+            else if (existsSync(dir)) unlinkSync(dir)
             writeJson(res, 200, { ok: true, prompts: promptFiles() }); return
           }
           if (body?.op !== 'save' || typeof body.body !== 'string' || body.body.trim() === '' || body.body.length > 32_000) {
             writeJson(res, 400, { ok: false, error: 'op=save requires a non-empty body (max 32,000 characters)' }); return
           }
-          mkdirSync(PROMPT_DIR, { recursive: true })
-          writeFileSync(join(PROMPT_DIR, `${slug}.md`), body.body, 'utf8')
+          const description = typeof body.description === 'string' ? body.description.slice(0, 200) : ''
+          mkdirSync(SKILLS_DIR, { recursive: true })
+          writeFileSync(join(SKILLS_DIR, `${slug}.md`), writeSkillMarkdown(slug, description, body.body), 'utf8')
           writeJson(res, 200, { ok: true, prompts: promptFiles() })
         },
       },
@@ -361,14 +452,14 @@ export function apply(ctx) {
             if (scope === 'global') { writeJson(res, 200, { ok: true, path: GLOBAL_FILE, content: readFileOrNull(GLOBAL_FILE) }); return }
             if (scope === 'workspace') {
               const wsPath = url.searchParams.get('workspace') ?? ''
-              if (wsPath === '' || !wsPath.startsWith('/') || wsPath.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-workspace' }); return }
+              if (wsPath === '' || isAbsoluteish(wsPath) === false || wsPath.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-workspace' }); return }
               const path = join(wsPath, 'AGENTS.md')
               writeJson(res, 200, { ok: true, path, content: readFileOrNull(path) })
               return
             }
             if (scope === 'custom') {
               const customPath = url.searchParams.get('path') ?? ''
-              if (customPath === '' || !customPath.startsWith('/') || customPath.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-path' }); return }
+              if (customPath === '' || isAbsoluteish(customPath) === false || customPath.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-path' }); return }
               writeJson(res, 200, { ok: true, path: customPath, content: readFileOrNull(customPath) })
               return
             }
@@ -387,13 +478,13 @@ export function apply(ctx) {
           }
           let path
           if (body.scope === 'custom') {
-            if (typeof body.path !== 'string' || body.path === '' || !body.path.startsWith('/') || body.path.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-path' }); return }
+            if (typeof body.path !== 'string' || body.path === '' || isAbsoluteish(body.path) === false || body.path.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-path' }); return }
             path = body.path
           }
           else if (body.scope === 'global') path = GLOBAL_FILE
           else {
             const wsPath = typeof body.workspace === 'string' ? body.workspace : ''
-            if (wsPath === '' || !wsPath.startsWith('/') || wsPath.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-workspace' }); return }
+            if (wsPath === '' || isAbsoluteish(wsPath) === false || wsPath.includes('..')) { writeJson(res, 400, { ok: false, error: 'invalid-workspace' }); return }
             path = join(wsPath, 'AGENTS.md')
           }
           try {
@@ -418,7 +509,7 @@ export function apply(ctx) {
             if (seen.has(path)) return
             seen.add(path)
             const exists = existsSync(path)
-            sources.push({ path, label, category, file: path.split('/').pop(), exists, lines: exists ? readFileSync(path, 'utf8').split('\n').length : 0 })
+            sources.push({ path, label, category, file: basename(path), exists, lines: exists ? readFileSync(path, 'utf8').split('\n').length : 0 })
           }
 
           // 1. Tool config directories — scan BOTH $HOME and /root (operators run as both)
@@ -436,55 +527,9 @@ export function apply(ctx) {
             }
           }
 
-          // 3. Direct filesystem scan — workspace roots + .refs/ reference repos.
-          // Slug decoding is ambiguous (hyphens in dir names vs separators), so
-          // we scan the actual filesystem instead.
-          const scanRoots = [
-            { dir: '/home/github', label: 'github', depth: 2 },
-            { dir: home, label: 'home', depth: 1 },
-          ]
-          for (const { dir: scanDir, label: scanLabel, depth } of scanRoots) {
-            if (!existsSync(scanDir)) continue
-            try {
-              for (const entry of readdirSync(scanDir, { withFileTypes: true })) {
-                if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue
-                const repoDir = join(scanDir, entry.name)
-                // Repo root AGENTS.md/CLAUDE.md
-                for (const file of ['AGENTS.md', 'CLAUDE.md']) {
-                  const p = join(repoDir, file)
-                  if (existsSync(p)) addSource(p, `${entry.name} (${file})`, 'workspace-root')
-                }
-                // .refs/ subdirectories (reference repos)
-                if (depth >= 2) {
-                  const refsDir = join(repoDir, '.refs')
-                  if (existsSync(refsDir)) {
-                    try {
-                      for (const ref of readdirSync(refsDir, { withFileTypes: true })) {
-                        if (!ref.isDirectory()) continue
-                        for (const file of ['AGENTS.md', 'CLAUDE.md']) {
-                          const p = join(refsDir, ref.name, file)
-                          if (existsSync(p)) addSource(p, `${entry.name}/.refs/${ref.name} (${file})`, 'reference')
-                        }
-                        // One level deeper for nested .refs/ (e.g. .refs/networking/netbird)
-                        const refSub = join(refsDir, ref.name)
-                        try {
-                          for (const nested of readdirSync(refSub, { withFileTypes: true })) {
-                            if (!nested.isDirectory()) continue
-                            for (const file of ['AGENTS.md', 'CLAUDE.md']) {
-                              const p = join(refSub, nested.name, file)
-                              if (existsSync(p)) addSource(p, `${entry.name}/.refs/${ref.name}/${nested.name} (${file})`, 'reference')
-                            }
-                          }
-                        } catch { /* not readable */ }
-                      }
-                    } catch { /* not readable */ }
-                  }
-                }
-              }
-            } catch { /* not readable */ }
-          }
-
-          // Global tab sources: tool-config and home only (workspace files belong to the workspace tab)
+          // Global tab sources: tool-config and home only (workspace files
+          // belong to the workspace tab); the Linux-only repo scan this block
+          // replaced never survived the filter below anyway.
           const globalOnly = sources.filter((s) => s.category === 'tool-config' || s.category === 'home')
           globalOnly.sort((a, b) => (b.exists ? 1 : 0) - (a.exists ? 1 : 0) || a.label.localeCompare(b.label))
           sources.length = 0
@@ -520,15 +565,17 @@ export function apply(ctx) {
           try {
             // If reset=true, remove symlink and create a plain file
             if (body.reset === true) {
-              if (lstatSync(GLOBAL_FILE).isSymbolicLink?.()) unlinkSync(GLOBAL_FILE)
+              let isLink = false
+              try { isLink = lstatSync(GLOBAL_FILE).isSymbolicLink() } catch { /* absent: nothing to unlink */ }
+              if (isLink) unlinkSync(GLOBAL_FILE)
               if (!existsSync(GLOBAL_FILE)) writeFileSync(GLOBAL_FILE, '', 'utf8')
               writeJson(res, 200, { ok: true, default: null, message: 'Reset to plain file' })
               return
             }
             // Create/replace the symlink: ~/.dsh/AGENTS.md -> target
-            if (existsSync(GLOBAL_FILE) || lstatSync(GLOBAL_FILE).isSymbolicLink?.()) {
-              try { unlinkSync(GLOBAL_FILE) } catch { /* may not exist */ }
-            }
+            try {
+              if (existsSync(GLOBAL_FILE) || lstatSync(GLOBAL_FILE).isSymbolicLink()) unlinkSync(GLOBAL_FILE)
+            } catch { /* absent: nothing to unlink */ }
             symlinkSync(target, GLOBAL_FILE)
             writeJson(res, 200, { ok: true, default: target, message: `Symlinked ${GLOBAL_FILE} -> ${target}` })
           } catch (error) {

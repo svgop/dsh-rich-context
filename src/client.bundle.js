@@ -32,9 +32,10 @@ window.__ModuleLoader__.load({
 			"sources.not_found": "not found",
 			"sources.lines": "lines",
 			"tab.prompts": "Prompts",
-			"tab.prompts.hint": "Reusable prompt snippets — type @name in chat to insert one",
+			"tab.prompts.hint": "Native user skills (~/.dsh/skills) — @name inserts, agents discover them as skills",
 			"prompts.new": "New prompt",
 			"prompts.name": "Name (lowercase-with-dashes)",
+			"prompts.description": "One-line description (agents see it when the prompt surfaces as a skill)",
 			"prompts.body": "Prompt text",
 			"prompts.save": "Save",
 			"prompts.delete": "Delete",
@@ -72,9 +73,10 @@ window.__ModuleLoader__.load({
 			"sources.not_found": "未找到",
 			"sources.lines": "行",
 			"tab.prompts": "提示词",
-			"tab.prompts.hint": "可复用提示词—在聊天框输入 @name 插入",
+			"tab.prompts.hint": "原生用户技能（~/.dsh/skills）—@name 插入，agent 会作为技能发现",
 			"prompts.new": "新建提示词",
 			"prompts.name": "名字（小写加短横）",
+			"prompts.description": "一句话描述（作为技能呈现给 agent 时可见）",
 			"prompts.body": "提示词正文",
 			"prompts.save": "保存",
 			"prompts.delete": "删除",
@@ -89,9 +91,10 @@ window.__ModuleLoader__.load({
 		const t = (key) => dict[lang][key] ?? dict.en[key] ?? key;
 		//#endregion
 		//#region lib/styles.js
-		const css = `.rcx-entry{appearance:none;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 10px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);background:0 0;border:none;border-radius:8px;cursor:pointer;text-align:left}
+		const css = `.rcx-entry{appearance:none;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:calc(100% - 16px);height:34px;padding:0 10px;margin:2px 8px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);background:0 0;border:none;border-radius:8px;cursor:pointer;text-align:left}
 .rcx-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .rcx-entry[data-active="true"]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.rcx-entryRail{justify-content:center;width:36px;height:36px;margin:2px auto;padding:0}
 .rcx-entryIcon{display:inline-flex;justify-content:center;align-items:center;width:24px;height:24px;flex:none;color:var(--dsw-alias-label-tertiary)}
 .rcx-entryLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcx-scrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -146,12 +149,6 @@ window.__ModuleLoader__.load({
 .rcx-promptBody{flex:1;min-height:120px;resize:vertical;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;padding:8px 10px;border-radius:6px;outline:none}
 .rcx-promptBody:focus{border-color:var(--dsw-alias-state-business-primary)}
 .rcx-promptActions{display:flex;align-items:center;gap:8px}
-.rcx-dockRow{box-sizing:border-box;width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));max-width:calc(var(--dsh-composer-card-max-width) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-specific-tip);border-radius:12px;flex:none;margin:0 auto;display:flex;align-items:center;gap:4px;padding:2px 6px;overflow-x:auto;scrollbar-width:none}
-.rcx-dockRow::-webkit-scrollbar{display:none}
-.rcx-dockLabel{flex:none;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px;padding:0 2px 0 4px;white-space:nowrap}
-.rcx-dockChip{flex:none;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;line-height:14px;padding:3px 9px;border-radius:999px;cursor:pointer}
-.rcx-dockChip:hover{color:var(--dsw-alias-label-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)}
-.rcx-dockEmpty{flex:1;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px;padding:2px 0}
 .rcx-promptScrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}
 .rcx-promptCard{width:min(560px,calc(100vw - 48px));max-height:min(70vh,640px);display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-specific-tip);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 .rcx-promptCardHead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1)}
@@ -203,92 +200,24 @@ window.__ModuleLoader__.load({
 			return promptCache.list;
 		}
 		function invalidatePrompts() { promptCache.at = 0; }
-		// Subsequence hit: every query character appears in order (with gaps
-		// allowed), so "dp" finds "deploy-pipeline" and multi-word fragments
-		// match across slug, name, and body without exact substrings.
-		function subsequenceHit(query, haystack) {
-			let at = 0;
-			for (const ch of query) {
-				at = haystack.indexOf(ch, at);
-				if (at < 0) return false;
-				at += 1;
-			}
-			return true;
+	// Fuzzy subsequence match: every query char appears in order (gaps
+	// allowed), so "dp" finds "deploy-pipeline" and multi-word fragments
+	// match across slug, name, and body without exact substrings.
+	function subsequenceHit(query, haystack) {
+		let at = 0;
+		for (const ch of query) {
+			at = haystack.indexOf(ch, at);
+			if (at < 0) return false;
+			at += 1;
 		}
+		return true;
+	}
 		//#endregion
 		//#region lib/sidebar.js
-		const ENTRY_ATTR = "data-dsh-rich-context-entry";
-		const FAMILY = ["[data-dsh-taskboard-entry]", "[data-dsh-ssh-entry]", "[data-dsh-skill-explorer-entry]", "[data-dsh-generative-ideas-entry]", `[${ENTRY_ATTR}]`];
-		const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5h7.5L13 5v8.5H3z"/><path d="M5.5 7h5M5.5 9.5h5M5.5 12h3"/></svg>`;
-
-		function sidebarRoot() {
-			const column = document.querySelector('[data-pane="sidebar"], [class*="sidebarCol"]');
-			if (column === null) return undefined;
-			return column.querySelector('[class*="logoRow"]')?.parentElement ?? column.firstElementChild ?? undefined;
-		}
-		function newSessionButton(root) {
-			const nested = root.querySelector('button[class*="newSession"]');
-			if (nested !== null) return nested;
-			for (const child of root.children) if (child.tagName === "BUTTON") return child;
-			return undefined;
-		}
-		function mountSidebarEntry(onToggle, isActive, subscribe) {
-			if (document.querySelector(`[${ENTRY_ATTR}]`) !== null) return () => {};
-			const entry = document.createElement("button");
-			entry.type = "button";
-			entry.setAttribute(ENTRY_ATTR, "");
-			entry.setAttribute("data-dsh-plugin", "rich-context");
-			entry.setAttribute("data-dsh-part", "sidebar-entry");
-			entry.className = "rcx-entry";
-			entry.setAttribute("aria-label", t("entry.tooltip"));
-			entry.setAttribute("title", t("entry.tooltip"));
-			entry.innerHTML = `<span class="rcx-entryIcon">${ICON}</span><span class="rcx-entryLabel">${t("entry.label")}</span>`;
-			entry.addEventListener("click", onToggle);
-			let root;
-			let placed = false;
-			const place = () => {
-				const button = root === undefined ? undefined : newSessionButton(root);
-				if (button === undefined) return false;
-				if (entry.parentElement !== root) {
-					const row = button.closest('[class*="logoRow"]');
-					const base = row !== null && row.parentElement === root ? row : button;
-					const family = Array.from(root.children).filter((el) => el instanceof HTMLElement && el.matches(FAMILY.join(", ")));
-					const anchor = family.length > 0 ? family[family.length - 1].nextElementSibling : base.nextElementSibling;
-					root.insertBefore(entry, anchor);
-				}
-				return true;
-			};
-			const tryPlace = () => {
-				if (root !== undefined && !root.isConnected) { rootObserver.disconnect(); root = undefined; placed = false; }
-				if (placed && document.body.contains(entry)) return;
-				if (placed && !document.body.contains(entry)) { rootObserver.disconnect(); root = undefined; placed = false; }
-				root ??= sidebarRoot();
-				if (root === undefined) return;
-				placed = place();
-				if (placed) rootObserver.observe(root, { childList: true, subtree: true });
-			};
-			const waitObserver = new MutationObserver(tryPlace);
-			waitObserver.observe(document.body, { childList: true, subtree: true });
-			const rootObserver = new MutationObserver(() => {
-				if (root === undefined || !root.isConnected) { placed = false; tryPlace(); return; }
-				if (!root.contains(entry)) placed = place();
-			});
-			let unsubscribe;
-			if (subscribe !== undefined) {
-				const sync = () => { if (isActive()) entry.setAttribute("data-active", "true"); else entry.removeAttribute("data-active"); };
-				unsubscribe = subscribe(sync);
-				sync();
-			}
-			tryPlace();
-			return () => {
-				waitObserver.disconnect();
-				rootObserver.disconnect();
-				if (unsubscribe !== undefined) unsubscribe();
-				entry.remove();
-			};
-		}
-		//#endregion
-		//#region lib/panel.js
+// (v0.8) The sidebar entry rides the sanctioned sidebar.footer.action slot —
+// the v0.7 MutationObserver/logoRow graft is retired (see lib/index.js).
+const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5h7.5L13 5v8.5H3z"/><path d="M5.5 7h5M5.5 9.5h5M5.5 12h3"/></svg>`;
+//#region lib/panel.js
 		/**
 		 * The overlay panel — pure DOM, no React. Two tabs (Global / Workspace)
 		 * + custom path routing, monospace editor, save.
@@ -363,9 +292,10 @@ window.__ModuleLoader__.load({
 				input.select();
 				const commit = () => {
 					const trimmed = input.value.trim();
-					if (trimmed.startsWith("/") && trimmed !== pathEl.textContent) {
+					const absoluteish = trimmed.startsWith("/") || /^[A-Za-z]:[\\/]/.test(trimmed);
+					if (absoluteish && trimmed !== pathEl.textContent) {
 						customPath = trimmed;
-					} else if (!trimmed.startsWith("/")) {
+					} else if (!absoluteish) {
 						customPath = null;
 					}
 					input.replaceWith(pathEl);
@@ -525,6 +455,10 @@ window.__ModuleLoader__.load({
 			promptName.className = "rcx-promptNameInput";
 			promptName.placeholder = t("prompts.name");
 			promptName.spellcheck = false;
+			const promptDesc = document.createElement("input");
+			promptDesc.className = "rcx-promptNameInput";
+			promptDesc.placeholder = t("prompts.description");
+			promptDesc.spellcheck = false;
 			const promptBody = document.createElement("textarea");
 			promptBody.className = "rcx-promptBody";
 			promptBody.placeholder = t("prompts.body");
@@ -542,7 +476,7 @@ window.__ModuleLoader__.load({
 			const promptStatus = document.createElement("span");
 			promptStatus.className = "rcx-sourceMeta";
 			promptActions.append(promptDelete, promptSave, promptStatus);
-			promptForm.append(promptName, promptBody, promptActions);
+			promptForm.append(promptName, promptDesc, promptBody, promptActions);
 			promptsEl.append(promptsHead, promptList, promptForm);
 			card.append(promptsEl);
 
@@ -554,6 +488,7 @@ window.__ModuleLoader__.load({
 			const clearPromptForm = () => {
 				selectedSlug = null;
 				promptName.value = "";
+				promptDesc.value = "";
 				promptBody.value = "";
 				promptDelete.style.display = "none";
 				setPromptStatus("");
@@ -571,6 +506,7 @@ window.__ModuleLoader__.load({
 					for (const prompt of list) {
 						const row = document.createElement("div");
 						row.className = "rcx-promptRow" + (prompt.slug === selectedSlug ? " rcx-sourceOn" : "");
+						row.title = prompt.description || prompt.body.replace(/\s+/g, " ").slice(0, 120);
 						const label = document.createElement("span");
 						label.className = "rcx-sourceLabel";
 						label.textContent = prompt.name;
@@ -581,6 +517,7 @@ window.__ModuleLoader__.load({
 						row.addEventListener("click", () => {
 							selectedSlug = prompt.slug;
 							promptName.value = prompt.slug;
+							promptDesc.value = prompt.description ?? "";
 							promptBody.value = prompt.body;
 							promptDelete.style.display = "";
 							setPromptStatus("");
@@ -604,7 +541,7 @@ window.__ModuleLoader__.load({
 			promptSave.addEventListener("click", () => {
 				const slug = promptName.value.trim().toLowerCase().replaceAll(" ", "-");
 				if (slug === "" || promptBody.value.trim() === "") { setPromptStatus(t("error.generic"), true); return; }
-				mutatePrompt({ op: "save", slug, body: promptBody.value }).then((body) => {
+				mutatePrompt({ op: "save", slug, description: promptDesc.value, body: promptBody.value }).then((body) => {
 					invalidatePrompts();
 					if (body.ok !== true) { setPromptStatus(body.error ?? t("error.generic"), true); return; }
 					selectedSlug = slug;
@@ -688,14 +625,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/index.js
-		const inject = ["locale", "inputTriggers"];
+		const inject = ["locale", "slots", "inputTriggers"];
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { en, zh }), "rich-context: dictionaries");
 
-			// Chat access: the native composer trigger pipeline. Typing
-			// @<query> offers the stored prompts (subsequence match over slug,
-			// name, and body); a pick inserts the full prompt body at the
-			// trigger span (PickOutcome {text}).
+			// Chat access, surface 1: the native composer trigger pipeline.
+			// Typing @<query> offers the stored prompts; a pick inserts the
+			// full prompt body at the trigger span (PickOutcome {text}).
 			ctx.inject(["inputTriggers"], (scope) => {
 				ctx.effect(() => scope.inputTriggers.registerSource({
 					trigger: "@",
@@ -712,25 +648,30 @@ window.__ModuleLoader__.load({
 							scored.push(prompt);
 						}
 						return scored.slice(0, 8).map((prompt) => ({
-							name: prompt.name,
-							description: prompt.body.replace(/\s+/g, " ").slice(0, 80),
-							hint: "@" + prompt.slug,
-							value: prompt.slug,
-						}));
+								name: prompt.name,
+								description: prompt.description !== "" && prompt.description !== undefined
+									? prompt.description.slice(0, 80)
+									: prompt.body.replace(/\s+/g, " ").slice(0, 80),
+								hint: "@" + prompt.slug,
+								value: prompt.slug,
+							}));
 					},
 					onPick(pick) {
 						const slug = pick?.candidate?.value;
 						const prompt = promptCache.list.find((entry) => entry.slug === slug);
 						if (prompt === undefined) return undefined;
-						return { text: prompt.body + "\n" };
-					},
+							return { text: prompt.body + String.fromCharCode(10) };
+						},
 				}), "rich-context: @prompts trigger source");
 			});
 
+			// (v0.8) The composer dock row is retired (2026-09-07 declutter): prompts
+			// stay reachable through the @ trigger and the panel's Prompts tab.
 
 			let open = false;
 			let listeners = new Set();
 			let panel = null;
+			let onKey = null;
 			const isOpen = () => open;
 			const subscribe = (listener) => { listeners.add(listener); return () => listeners.delete(listener); };
 			const setOpen = (value) => {
@@ -739,31 +680,55 @@ window.__ModuleLoader__.load({
 				for (const listener of [...listeners]) listener();
 			};
 			const teardown = () => {
+				if (onKey !== null) { document.removeEventListener("keydown", onKey, true); onKey = null; }
 				setOpen(false);
 				if (panel !== null) { panel.remove(); panel = null; }
 			};
-			const toggle = () => {
-				if (open) { teardown(); return; }
+			const openPanel = () => {
+				if (open) return;
 				panel = createPanel(() => teardown());
 				document.body.appendChild(panel);
+				onKey = (event) => { if (event.key === "Escape") { event.stopPropagation(); teardown(); } };
+				document.addEventListener("keydown", onKey, true);
 				setOpen(true);
 			};
 
-			const SIDEBAR_ROW_SELECTOR = '[class*="sessionRow"], [class*="projectRow"], [class*="searchResultRow"], [class*="searchResultWorkspace"], [class*="newSession"]';
-			const onSidebarClick = (event) => {
-				if (!open) return;
-				const target = event.target;
-				if (target !== null && target.closest?.(SIDEBAR_ROW_SELECTOR) !== null) teardown();
-			};
-			document.addEventListener("click", onSidebarClick, true);
+			// The sanctioned seat: an action beside Settings in the sidebar
+			// foot (wide row / rail icon), replacing the v0.7 DOM graft.
+			ctx.slots.inject("sidebar.footer.action", () => {
+				const react = require("react");
+				const jsxRuntime = require("react/jsx-runtime");
+				const useState = react.useState;
+				function ContextFooterAction(props) {
+					const wide = props.wide !== false;
+					const [on, setOn] = useState(false);
+					react.useEffect(() => {
+						const dispose = subscribe(() => setOn(isOpen()));
+						setOn(isOpen());
+						return dispose;
+					}, []);
+					return jsxRuntime.jsxs("button", {
+						type: "button",
+						className: "rcx-entry" + (wide === false ? " rcx-entryRail" : ""),
+						"aria-label": t("entry.tooltip"),
+						"aria-pressed": on,
+						title: t("entry.tooltip"),
+						onClick: () => { if (open) teardown(); else openPanel(); },
+						children: [
+							jsxRuntime.jsx("span", { className: "rcx-entryIcon", dangerouslySetInnerHTML: { __html: ICON } }),
+							wide === true ? jsxRuntime.jsx("span", { className: "rcx-entryLabel", children: t("entry.label") }) : null,
+						],
+					});
+				}
+				ctx.slots.register({
+					name: "sidebar.footer.action",
+					id: "rich-context",
+					order: 20,
+					locale: NS,
+				}, ContextFooterAction);
+			});
 
-			const disposeEntry = mountSidebarEntry(toggle, isOpen, subscribe);
-
-			return () => {
-				document.removeEventListener("click", onSidebarClick, true);
-				teardown();
-				disposeEntry();
-			};
+			return () => { teardown(); };
 		}
 		exports.apply = apply;
 		exports.inject = inject;
