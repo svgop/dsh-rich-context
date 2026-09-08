@@ -91,10 +91,9 @@ window.__ModuleLoader__.load({
 		const t = (key) => dict[lang][key] ?? dict.en[key] ?? key;
 		//#endregion
 		//#region lib/styles.js
-		const css = `.rcx-entry{appearance:none;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:calc(100% - 16px);height:34px;padding:0 10px;margin:2px 8px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);background:0 0;border:none;border-radius:8px;cursor:pointer;text-align:left}
+		const css = `.rcx-entry{appearance:none;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 10px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);background:0 0;border:none;border-radius:8px;cursor:pointer;text-align:left}
 .rcx-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .rcx-entry[data-active="true"]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.rcx-entryRail{justify-content:center;width:36px;height:36px;margin:2px auto;padding:0}
 .rcx-entryIcon{display:inline-flex;justify-content:center;align-items:center;width:24px;height:24px;flex:none;color:var(--dsw-alias-label-tertiary)}
 .rcx-entryLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcx-scrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -213,10 +212,79 @@ window.__ModuleLoader__.load({
 		return true;
 	}
 		//#endregion
-		//#region lib/sidebar.js
-// (v0.8) The sidebar entry rides the sanctioned sidebar.footer.action slot —
-// the v0.7 MutationObserver/logoRow graft is retired (see lib/index.js).
-const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5h7.5L13 5v8.5H3z"/><path d="M5.5 7h5M5.5 9.5h5M5.5 12h3"/></svg>`;
+				//#region lib/sidebar.js
+		const ENTRY_ATTR = "data-dsh-rich-context-entry";
+		const FAMILY = ["[data-dsh-taskboard-entry]", "[data-dsh-ssh-entry]", "[data-dsh-skill-explorer-entry]", "[data-dsh-generative-ideas-entry]", `[${ENTRY_ATTR}]`];
+		const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5h7.5L13 5v8.5H3z"/><path d="M5.5 7h5M5.5 9.5h5M5.5 12h3"/></svg>`;
+
+		function sidebarRoot() {
+			const column = document.querySelector('[data-pane="sidebar"], [class*="sidebarCol"]');
+			if (column === null) return undefined;
+			return column.querySelector('[class*="logoRow"]')?.parentElement ?? column.firstElementChild ?? undefined;
+		}
+		function newSessionButton(root) {
+			const nested = root.querySelector('button[class*="newSession"]');
+			if (nested !== null) return nested;
+			for (const child of root.children) if (child.tagName === "BUTTON") return child;
+			return undefined;
+		}
+		function mountSidebarEntry(onToggle, isActive, subscribe) {
+			if (document.querySelector(`[${ENTRY_ATTR}]`) !== null) return () => {};
+			const entry = document.createElement("button");
+			entry.type = "button";
+			entry.setAttribute(ENTRY_ATTR, "");
+			entry.setAttribute("data-dsh-plugin", "rich-context");
+			entry.setAttribute("data-dsh-part", "sidebar-entry");
+			entry.className = "rcx-entry";
+			entry.setAttribute("aria-label", t("entry.tooltip"));
+			entry.setAttribute("title", t("entry.tooltip"));
+			entry.innerHTML = `<span class="rcx-entryIcon">${ICON}</span><span class="rcx-entryLabel">${t("entry.label")}</span>`;
+			entry.addEventListener("click", onToggle);
+			let root;
+			let placed = false;
+			const place = () => {
+				const button = root === undefined ? undefined : newSessionButton(root);
+				if (button === undefined) return false;
+				if (entry.parentElement !== root) {
+					const row = button.closest('[class*="logoRow"]');
+					const base = row !== null && row.parentElement === root ? row : button;
+					const family = Array.from(root.children).filter((el) => el instanceof HTMLElement && el.matches(FAMILY.join(", ")));
+					const anchor = family.length > 0 ? family[family.length - 1].nextElementSibling : base.nextElementSibling;
+					root.insertBefore(entry, anchor);
+				}
+				return true;
+			};
+			const tryPlace = () => {
+				if (root !== undefined && !root.isConnected) { rootObserver.disconnect(); root = undefined; placed = false; }
+				if (placed && document.body.contains(entry)) return;
+				if (placed && !document.body.contains(entry)) { rootObserver.disconnect(); root = undefined; placed = false; }
+				root ??= sidebarRoot();
+				if (root === undefined) return;
+				placed = place();
+				if (placed) rootObserver.observe(root, { childList: true, subtree: true });
+			};
+			const waitObserver = new MutationObserver(tryPlace);
+			waitObserver.observe(document.body, { childList: true, subtree: true });
+			const rootObserver = new MutationObserver(() => {
+				if (root === undefined || !root.isConnected) { placed = false; tryPlace(); return; }
+				if (!root.contains(entry)) placed = place();
+			});
+			let unsubscribe;
+			if (subscribe !== undefined) {
+				const sync = () => { if (isActive()) entry.setAttribute("data-active", "true"); else entry.removeAttribute("data-active"); };
+				unsubscribe = subscribe(sync);
+				sync();
+			}
+			tryPlace();
+			return () => {
+				waitObserver.disconnect();
+				rootObserver.disconnect();
+				if (unsubscribe !== undefined) unsubscribe();
+				entry.remove();
+			};
+		}
+		//#endregion
+		//#region lib/panel.js
 //#region lib/panel.js
 		/**
 		 * The overlay panel — pure DOM, no React. Two tabs (Global / Workspace)
@@ -701,43 +769,14 @@ const ICON = `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke
 				document.addEventListener("keydown", onKey, true);
 				setOpen(true);
 			};
+			const toggle = () => { if (open) teardown(); else openPanel(); };
 
-			// The sanctioned seat: an action beside Settings in the sidebar
-			// foot (wide row / rail icon), replacing the v0.7 DOM graft.
-			ctx.slots.inject("sidebar.footer.action", () => {
-				const react = require("react");
-				const jsxRuntime = require("react/jsx-runtime");
-				const useState = react.useState;
-				function ContextFooterAction(props) {
-					const wide = props.wide !== false;
-					const [on, setOn] = useState(false);
-					react.useEffect(() => {
-						const dispose = subscribe(() => setOn(isOpen()));
-						setOn(isOpen());
-						return dispose;
-					}, []);
-					return jsxRuntime.jsxs("button", {
-						type: "button",
-						className: "rcx-entry" + (wide === false ? " rcx-entryRail" : ""),
-						"aria-label": t("entry.tooltip"),
-						"aria-pressed": on,
-						title: t("entry.tooltip"),
-						onClick: () => { if (open) teardown(); else openPanel(); },
-						children: [
-							jsxRuntime.jsx("span", { className: "rcx-entryIcon", dangerouslySetInnerHTML: { __html: ICON } }),
-							wide === true ? jsxRuntime.jsx("span", { className: "rcx-entryLabel", children: t("entry.label") }) : null,
-						],
-					});
-				}
-				ctx.slots.register({
-					name: "sidebar.footer.action",
-					id: "rich-context",
-					order: 20,
-					locale: NS,
-				}, ContextFooterAction);
-			});
+			const disposeEntry = mountSidebarEntry(toggle, isOpen, subscribe);
 
-			return () => { teardown(); };
+			return () => {
+				disposeEntry();
+				teardown();
+			};
 		}
 		exports.apply = apply;
 		exports.inject = inject;
