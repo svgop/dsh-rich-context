@@ -5,11 +5,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-test('the entry mounts at the sidebar top via the family graft (operator placement, restored 2026-09-07)', () => {
+test('the sidebar entry rides the sanctioned panellist + main slots (0.1.6 contract)', () => {
   const bundle = readFileSync(new URL('../src/client.bundle.js', import.meta.url), 'utf8')
-  assert.match(bundle, /function mountSidebarEntry/, 'the original sidebar-top graft entry is mounted')
+  assert.match(bundle, /slots\.inject\("sidebar\.panellist"/, 'the panellist row is registered through the sanctioned slot')
+  assert.match(bundle, /slots\.inject\("main"/, 'the panel is registered through the main slot')
   const code = bundle.split('\n').filter((line) => /^[ \t]*(\/\/|\*|\/\*)/.test(line) === false).join('\n')
-  assert.doesNotMatch(code, /slots\.inject\("sidebar\.footer\.action"/, 'no footer-action registration — one entry, top of sidebar')
+  assert.doesNotMatch(code, /MutationObserver/, 'no DOM-graft observers — the shell owns the sidebar row')
+  assert.doesNotMatch(code, /slots\.inject\("sidebar\.footer\.action"/, 'no footer-action registration — one entry, panellist row')
 })
 
 test('the @ trigger inserts a real newline, never a literal backslash-n', () => {
