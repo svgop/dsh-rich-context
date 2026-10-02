@@ -50,7 +50,7 @@ const KNOWN_SOURCES = [
 ]
 
 export const name = 'dsh-rich-context'
-export const inject = ['tools', 'webServer']
+export const inject = ['tools', 'webServer', 'connection']
 
 /** Built-in section templates (insertable titled sections, always available). */
 const BUILTIN_TEMPLATES = [
@@ -362,7 +362,18 @@ function isAbsoluteish(path) {
 }
 
 /** Route fence (exemplar posture): loopback socket + browser same-origin marker. */
-function guard(req, res) {
+/**
+ * Route fence: Connection's own Host/Origin + browser-authentication policy —
+ * the same checks the /api channel applies, and the only check that is correct
+ * under BOTH carriers (the desktop page's custom-scheme fetches carry
+ * `sec-fetch-site: cross-site` and no Origin — the old local fence rejected
+ * exactly that legitimate client). The loopback fence survives only as the
+ * fallback when no Connection service is in scope. `guard` is reassigned in
+ * apply().
+ */
+let guard = localGuard
+
+function localGuard(req, res) {
   const remote = req.socket?.remoteAddress ?? ''
   const loopback = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1'
   const site = req.headers['sec-fetch-site']
@@ -371,7 +382,24 @@ function guard(req, res) {
   return loopback && browser
 }
 
+function makeGuard(ctx) {
+  return (req, res) => {
+    const connection = ctx?.connection
+    if (connection !== undefined && typeof connection.requestRejection === 'function') {
+      const rejection = connection.requestRejection(req)
+      if (rejection !== undefined) {
+        res.writeHead(rejection, { 'content-type': 'text/plain; charset=utf-8' })
+        res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
+        return false
+      }
+      return true
+    }
+    return localGuard(req, res)
+  }
+}
+
 export function apply(ctx) {
+  guard = makeGuard(ctx)
   ctx.effect(() => {
     const routes = [
       {
