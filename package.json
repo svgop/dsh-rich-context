@@ -1,6 +1,6 @@
 {
   "name": "dsh-rich-context",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Agent instruction manager for DeepSeek Harness: edit, refine, and template the AGENTS.md files the harness actually reads — the user-global ~/.dsh/AGENTS.md and per-workspace AGENTS.md — from a sidebar panel.",
   "keywords": [
     "deepseek-harness",
@@ -32,10 +32,12 @@
   "exports": {
     ".": "./src/host.js",
     "./client": "./src/client.bundle.js",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
     "src",
+    "locale",
     "cordis.patch.yml",
     "README.md",
     "DESIGN.md",
@@ -43,7 +45,7 @@
   ],
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.1-rc.2"
+      "dsh": ">=0.1.6-0 || >=0.2.0-rc.0"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -51,7 +53,6 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-locale"
       ]
     }
