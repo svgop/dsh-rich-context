@@ -10,6 +10,8 @@ window.__ModuleLoader__.load({
 			"entry.label": "Context",
 			"entry.tooltip": "Manage AGENTS.md — the instruction files your agents read",
 			"panel.title": "Agent context",
+			"panel.pageTitle": "Agent context",
+			"panel.pageIntro": "Edit the AGENTS.md instruction files the harness actually reads — user-global and per-workspace.",
 			"tab.global": "Global",
 			"tab.workspace": "Workspace",
 			"tab.global.hint": "~/.dsh/AGENTS.md — applies to every session",
@@ -51,6 +53,8 @@ window.__ModuleLoader__.load({
 			"entry.label": "上下文",
 			"entry.tooltip": "管理 AGENTS.md——agent 实际读取的指令文件",
 			"panel.title": "Agent 上下文",
+			"panel.pageTitle": "Agent 上下文",
+			"panel.pageIntro": "编辑 harness 实际读取的 AGENTS.md 指令文件——用户全局与各工作区。",
 			"tab.global": "全局",
 			"tab.workspace": "工作区",
 			"tab.global.hint": "~/.dsh/AGENTS.md——作用于所有会话",
@@ -97,8 +101,8 @@ window.__ModuleLoader__.load({
 .rcx-entry[data-active="true"]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .rcx-entryIcon{display:inline-flex;justify-content:center;align-items:center;width:24px;height:24px;flex:none;color:var(--dsw-alias-label-tertiary)}
 .rcx-entryLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcx-scrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}
-.rcx-card{width:100%;max-width:960px;max-height:min(92vh,1200px);border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-specific-tip);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.rcx-scrim{position:fixed;inset:0;z-index:90;background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);display:flex;align-items:center;justify-content:center;padding:24px}
+.rcx-card{width:100%;max-width:960px;max-height:min(92vh,1200px);border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-panel);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--dsw-elevation-prominent)}
 .rcx-card,.rcx-card *{box-sizing:border-box}
 .rcx-head{display:flex;align-items:baseline;gap:10px;padding:14px 0 10px}
 .rcx-titleRow{display:flex;align-items:center;gap:10px;padding:0 16px;width:100%}
@@ -149,19 +153,33 @@ window.__ModuleLoader__.load({
 .rcx-promptBody{flex:1;min-height:120px;resize:vertical;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;padding:8px 10px;border-radius:6px;outline:none}
 .rcx-promptBody:focus{border-color:var(--dsw-alias-state-business-primary)}
 .rcx-promptActions{display:flex;align-items:center;gap:8px}
-.rcx-promptScrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}
-.rcx-promptCard{width:min(560px,calc(100vw - 48px));max-height:min(70vh,640px);display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-specific-tip);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.rcx-promptScrim{position:fixed;inset:0;z-index:90;background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);display:flex;align-items:center;justify-content:center;padding:24px}
+.rcx-promptCard{width:min(560px,calc(100vw - 48px));max-height:min(70vh,640px);display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-panel);overflow:hidden;box-shadow:var(--dsw-elevation-prominent)}
 .rcx-promptCardHead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .rcx-promptCardTitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary)}
 .rcx-promptCardBody{flex:1;overflow:auto;padding:12px 14px;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;white-space:pre-wrap;color:var(--dsw-alias-label-secondary)}
 .rcx-promptCardFoot{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px}
 .rcx-promptCopy{margin-left:auto}
-/* Hosted main-panel mode (sidebar.panellist + main slots): the panel fills
-   the main area instead of floating over the conversation. */
-.rcx-main{height:100%;overflow:auto;box-sizing:border-box;background:var(--dsw-specific-sidebar-fill);padding:24px;display:flex;justify-content:center;align-items:flex-start}
-.rcx-main .rcx-scrim{position:static;z-index:auto;background:0 0;padding:0;display:flex;flex-direction:column;width:100%;max-width:960px;height:100%}
-.rcx-main .rcx-card{flex:1;min-height:0;max-height:none;box-shadow:none}
-.rcx-main .rcx-closeBtn{display:none}`;
+/* Hosted main-panel mode (sidebar.panellist + main slots): the panel renders
+   as a native page (.docs/native-page-template.md) — transparent over the main
+   column's bg-base, a 960px centered column, pageHead anatomy, and a 32px
+   section rhythm; the dialog grammar above styles real overlays only. */
+.rcx-main{height:100%;overflow:auto;box-sizing:border-box;padding:0 clamp(24px,4vw,48px) 48px;display:flex;justify-content:center;align-items:flex-start}
+.rcx-main .rcx-scrim{position:static;z-index:auto;background:0 0;backdrop-filter:none;padding:0;padding-top:0;display:flex;flex-direction:column;width:100%;max-width:960px;height:100%}
+.rcx-main .rcx-card{flex:1;min-height:0;max-height:none;border:none;background:0 0;border-radius:0;box-shadow:none;gap:32px}
+.rcx-main .rcx-closeBtn{display:none}
+/* Hosted page head — native pageHead anatomy (as on the Plugins/Tasks pages):
+   title + intro column left, path/close actions right, 28px top clearance. */
+.rcx-pageHead{justify-content:space-between;align-items:flex-start;gap:16px;padding:28px 0 0}
+[data-platform=darwin] .rcx-pageHead{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}
+.rcx-pageHead .rcx-titleRow{flex:1;min-width:0;width:auto;padding:0;flex-direction:column;align-items:flex-start;gap:0}
+.rcx-pageHead .rcx-title{font-size:20px;font-weight:500;line-height:28px;margin:0}
+.rcx-pageHead .rcx-intro{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}
+.rcx-headBar{flex:0 1 auto;min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:16px}
+/* Hosted editor block — native in-page card: radius-xl, border-l1, layer-1
+   fill, no drop shadow; the page's 32px rhythm provides the spacing. */
+.rcx-main .rcx-editorWrap{padding:0;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-1)}
+.rcx-main .rcx-editor{background:0 0}`;
 		const tagId = "dsh-rich-context/panel.css";
 		if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css="${tagId}"]`) === null) {
 			const tag = document.createElement("style");
@@ -241,7 +259,7 @@ window.__ModuleLoader__.load({
 				className: "rcx-main",
 				ref: (node) => {
 					if (node === null) return;
-					const panel = createPanel(() => {});
+					const panel = createPanel(() => {}, true);
 					panel.classList.add("rcx-hosted");
 					node.append(panel);
 				},
@@ -254,7 +272,7 @@ window.__ModuleLoader__.load({
 		 * The overlay panel — pure DOM, no React. Two tabs (Global / Workspace)
 		 * + custom path routing, monospace editor, save.
 		 */
-		function createPanel(onClose) {
+		function createPanel(onClose, hosted) {
 			// --- State ---
 			let tab = "global";
 			let workspace = "";
@@ -307,12 +325,12 @@ window.__ModuleLoader__.load({
 
 			// Header
 			const head = document.createElement("div");
-			head.className = "rcx-head";
+			head.className = hosted === true ? "rcx-head rcx-pageHead" : "rcx-head";
 			const titleRow = document.createElement("div");
 			titleRow.className = "rcx-titleRow";
 			const title = document.createElement("span");
 			title.className = "rcx-title";
-			title.textContent = t("panel.title");
+			title.textContent = hosted === true ? t("panel.pageTitle") : t("panel.title");
 			pathEl = document.createElement("span");
 			pathEl.className = "rcx-path";
 			pathEl.title = t("entry.tooltip");
@@ -350,8 +368,21 @@ window.__ModuleLoader__.load({
 			closeBtn.setAttribute("aria-label", t("action.close"));
 			closeBtn.textContent = "\u00d7";
 			closeBtn.addEventListener("click", onClose);
-			titleRow.append(title, pathEl, closeBtn);
-			head.append(titleRow);
+			if (hosted === true) {
+				// Native pageHead anatomy: title + intro column left, path/close
+				// actions right (see .docs/native-page-template.md).
+				const intro = document.createElement("span");
+				intro.className = "rcx-intro";
+				intro.textContent = t("panel.pageIntro");
+				titleRow.append(title, intro);
+				const headBar = document.createElement("div");
+				headBar.className = "rcx-headBar";
+				headBar.append(pathEl, closeBtn);
+				head.append(titleRow, headBar);
+			} else {
+				titleRow.append(title, pathEl, closeBtn);
+				head.append(titleRow);
+			}
 			card.append(head);
 
 			// Tabs
