@@ -137,8 +137,8 @@ window.__ModuleLoader__.load({
 .rcx-rowLabel{flex:1;min-width:0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcx-rowMeta{flex:none;color:var(--dsw-alias-label-caption);font-size:12px;line-height:16px;font-variant-numeric:tabular-nums}
 .rcx-emptyHint{padding:8px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}
-.rcx-select{width:100%;max-width:480px;height:32px;border:0.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;line-height:22px;padding:0 8px}
-.rcx-select:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
+.rcx-picker{min-width:280px;max-width:480px;justify-content:space-between}
+.rcx-pickerLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcx-editorCard{display:flex;min-height:360px;border:0.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-1)}
 .rcx-editorCard:focus-within{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
 .rcx-editor{flex:1;min-height:0;width:100%;resize:none;border:none;outline:none;background:transparent;color:var(--dsw-alias-label-primary);font-family:ui-monospace,monospace;font-size:12.5px;line-height:19px;padding:10px 16px}
@@ -243,6 +243,34 @@ window.__ModuleLoader__.load({
 		 * the rule-4 plain elements (textarea/select). All fetch/state logic is
 		 * the pre-rewrite behavior, ported as-is.
 		 */
+		/** Native dropdown picker: a Button trigger opening the app's Menu
+		 * (MenuSurface + MenuItemButton rows, check-marked selection, keyboard
+		 * walk) — the app's value-picker grammar, replacing <select>. */
+		function MenuPicker({ value, options, placeholder, onChange, ariaLabel }) {
+			const [open, setOpen] = useState(false);
+			const current = options.find((option) => option.value === value);
+			return jsx(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+				open,
+				onClose: () => setOpen(false),
+				onSelect: (id) => { onChange(id); setOpen(false); },
+				selectedId: value,
+				align: "start",
+				side: "bottom",
+				items: options.map((option) => ({ id: option.value, label: option.label })),
+				anchor: jsxs(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					className: "rcx-picker",
+					"aria-haspopup": "menu",
+					"aria-expanded": open,
+					"aria-label": ariaLabel,
+					onClick: () => setOpen(open === false),
+					children: [
+						jsx("span", { className: "rcx-pickerLabel", children: current === undefined ? placeholder : current.label }),
+						jsx(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 14 }),
+					],
+				}),
+			});
+		}
+
 		function ContextPage() {
 			const [tab, setTab] = useState("global");
 			const [workspace, setWorkspace] = useState("");
@@ -410,14 +438,12 @@ window.__ModuleLoader__.load({
 							? jsx("div", { id: "rcx-panel-prompts", className: "rcx-tabPanel", children: jsx(PromptsSection, {}) })
 							: jsxs("div", { id: `rcx-panel-${tab}`, className: "rcx-tabPanel", children: [
 								tab === "global" ? jsx(SourcesSection, { sources, onSetDefault: setDefaultSource }) : null,
-								tab === "workspace" ? jsx("select", {
-									className: "rcx-select",
+								tab === "workspace" ? jsx(MenuPicker, {
 									value: workspace,
-									onChange: (event) => setWorkspace(event.currentTarget.value),
-									children: [
-										jsx("option", { value: "", disabled: true, children: t("workspace.placeholder") }),
-										...(state?.workspaces ?? []).map((slug) => jsx("option", { value: slug, children: slug }, slug)),
-									],
+									placeholder: t("workspace.placeholder"),
+									ariaLabel: t("tab.workspace"),
+									onChange: (value) => setWorkspace(value),
+									options: (state?.workspaces ?? []).map((pathEntry) => ({ value: pathEntry, label: pathEntry })),
 								}) : null,
 								jsxs("div", { className: "rcx-editorCard", children: [
 									jsx("textarea", {
