@@ -1,9 +1,13 @@
 window.__ModuleLoader__.load({
 	id: "dsh-rich-context",
 	factory: (require) => {
-		const { jsx } = require("react/jsx-runtime");
 		var module = { exports: {} };
 		var exports = module.exports;
+		let react = require("react");
+		let react_jsx_runtime = require("react/jsx-runtime");
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		const { jsx, jsxs } = react_jsx_runtime;
+		const { useState, useEffect, useRef } = react;
 		//#region lib/locale.js
 		const NS = "rich-context";
 		const en = {
@@ -12,6 +16,7 @@ window.__ModuleLoader__.load({
 			"panel.title": "Agent context",
 			"panel.pageTitle": "Agent context",
 			"panel.pageIntro": "Edit the AGENTS.md instruction files the harness actually reads — user-global and per-workspace.",
+			"tabs.label": "Agent context sections",
 			"tab.global": "Global",
 			"tab.workspace": "Workspace",
 			"tab.global.hint": "~/.dsh/AGENTS.md — applies to every session",
@@ -48,6 +53,7 @@ window.__ModuleLoader__.load({
 			"prompts.dockHint": "Type @name in the composer to insert a prompt",
 			"prompts.copy": "Copy",
 			"prompts.copied": "copied",
+			"prompts.preview": "Preview",
 		};
 		const zh = {
 			"entry.label": "上下文",
@@ -55,6 +61,7 @@ window.__ModuleLoader__.load({
 			"panel.title": "Agent 上下文",
 			"panel.pageTitle": "Agent 上下文",
 			"panel.pageIntro": "编辑 harness 实际读取的 AGENTS.md 指令文件——用户全局与各工作区。",
+			"tabs.label": "Agent 上下文分区",
 			"tab.global": "全局",
 			"tab.workspace": "工作区",
 			"tab.global.hint": "~/.dsh/AGENTS.md——作用于所有会话",
@@ -87,99 +94,66 @@ window.__ModuleLoader__.load({
 			"prompts.delete": "删除",
 			"prompts.empty": "还没有提示词—创建一个，之后在输入框用 @name 插入。",
 			"prompts.confirmDelete": "删除这个提示词？",
+			"prompts.updated": "已更新",
 			"prompts.dockHint": "在输入框输入 @name 即可插入提示词",
 			"prompts.copy": "复制",
 			"prompts.copied": "已复制",
+			"prompts.preview": "预览",
 		};
 		const lang = (typeof navigator !== "undefined" && /^(zh)/i.test(navigator.language ?? "")) ? "zh" : "en";
 		const dict = { en, zh };
 		const t = (key) => dict[lang][key] ?? dict.en[key] ?? key;
 		//#endregion
 		//#region lib/styles.js
-		const css = `.rcx-entry{appearance:none;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 10px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);background:0 0;border:none;border-radius:8px;cursor:pointer;text-align:left}
-.rcx-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.rcx-entry[data-active="true"]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.rcx-entryIcon{display:inline-flex;justify-content:center;align-items:center;width:24px;height:24px;flex:none;color:var(--dsw-alias-label-tertiary)}
-.rcx-entryLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcx-scrim{position:fixed;inset:0;z-index:90;background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);display:flex;align-items:center;justify-content:center;padding:24px}
-.rcx-card{width:100%;max-width:960px;max-height:min(92vh,1200px);border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-panel);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--dsw-elevation-prominent)}
-.rcx-card,.rcx-card *{box-sizing:border-box}
-.rcx-head{display:flex;align-items:baseline;gap:10px;padding:14px 0 10px}
-.rcx-titleRow{display:flex;align-items:center;gap:10px;padding:0 16px;width:100%}
-.rcx-title{font-size:14px;font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary);flex:none}
-.rcx-path{min-width:0;flex:1;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:16px;font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline dotted}
-.rcx-pathInput{min-width:0;flex:1;border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:12px;line-height:16px;font-family:ui-monospace,monospace;padding:2px 6px;border-radius:6px;outline:none}
-.rcx-closeBtn{flex:none;width:28px;height:28px;display:grid;place-items:center;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;font-size:16px}
-.rcx-closeBtn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.rcx-tabs{display:flex;border-top:1px solid var(--dsw-alias-border-l1);border-bottom:1px solid var(--dsw-alias-border-l1)}
-.rcx-tab{appearance:none;background:0 0;border:none;border-right:1px solid var(--dsw-alias-border-l1);padding:8px 16px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer}
-.rcx-tabOn{color:var(--dsw-alias-state-business-primary);font-weight:500}
-.rcx-tab:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.rcx-tabHint{flex:1;align-self:center;padding:0 12px;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcx-picker{padding:8px 16px 0}
-.rcx-select{width:100%;height:30px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);border-radius:8px;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;padding:0 8px}
-.rcx-editorWrap{flex:1;min-height:0;display:flex;flex-direction:column;padding:8px 0 0;overflow:hidden}
-.rcx-editor{flex:1;min-height:300px;height:100%;width:100%;resize:none;border:none;outline:none;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:ui-monospace,monospace;font-size:12.5px;line-height:19px;padding:10px 16px;scrollbar-width:none}
-.rcx-editor::-webkit-scrollbar{display:none}
-.rcx-empty{padding:2px 16px;color:var(--dsw-alias-label-caption);font-size:11px;line-height:14px}
-.rcx-sources{border-top:1px solid var(--dsw-alias-border-l1);padding:8px 16px}
-.rcx-sourcesHead{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
-.rcx-sourcesTitle{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px;text-transform:uppercase;letter-spacing:.05em}
-.rcx-sourcesHint{flex:1;color:var(--dsw-alias-label-caption);font-size:11px;line-height:14px}
-.rcx-sourceList{display:flex;flex-direction:column;gap:2px;max-height:120px;overflow-y:auto;scrollbar-width:none}
-.rcx-sourceList::-webkit-scrollbar{display:none}
-.rcx-sourceRow{display:flex;align-items:center;gap:8px;padding:3px 8px;border-radius:6px;cursor:pointer}
-.rcx-sourceRow:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.rcx-sourceOn{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent)}
-.rcx-sourceLabel{flex:1;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcx-sourceMeta{color:var(--dsw-alias-label-caption);font-size:11px;line-height:14px;flex:none}
-.rcx-sourceBtn{flex:none;background:0 0;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;padding:1px 8px;font:inherit;font-size:11px;line-height:14px;color:var(--dsw-alias-label-secondary);cursor:pointer}
-.rcx-sourceBtn:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}
-.rcx-footer{display:flex;align-items:stretch;border-top:1px solid var(--dsw-alias-border-l1)}
-.rcx-status{flex:1;align-self:center;min-width:0;padding:0 12px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcx-statusErr{color:var(--dsw-alias-state-error-primary)}
-.rcx-statusOk{color:var(--dsw-alias-state-success-primary)}
-.rcx-saveBtn{appearance:none;background:0 0;border:none;border-left:1px solid var(--dsw-alias-border-l1);padding:9px 20px;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer}
-.rcx-saveBtn:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.rcx-saveBtn:disabled{opacity:.45;cursor:default}
-.rcx-saveDirty{color:var(--dsw-alias-state-business-primary);font-weight:500}
-.rcx-prompts{display:flex;flex-direction:column;min-height:0;flex:1}
-.rcx-promptList{max-height:180px;overflow:auto;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.rcx-promptRow{display:flex;align-items:center;gap:10px;padding:6px 14px;cursor:pointer}
-.rcx-promptRow:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.rcx-promptForm{display:flex;flex-direction:column;gap:8px;padding:10px 14px;flex:1;min-height:0}
-.rcx-promptNameInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:16px;font-family:ui-monospace,monospace;padding:4px 8px;border-radius:6px;outline:none}
-.rcx-promptNameInput:focus{border-color:var(--dsw-alias-state-business-primary)}
-.rcx-promptBody{flex:1;min-height:120px;resize:vertical;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;padding:8px 10px;border-radius:6px;outline:none}
-.rcx-promptBody:focus{border-color:var(--dsw-alias-state-business-primary)}
-.rcx-promptActions{display:flex;align-items:center;gap:8px}
-.rcx-promptScrim{position:fixed;inset:0;z-index:90;background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);display:flex;align-items:center;justify-content:center;padding:24px}
-.rcx-promptCard{width:min(560px,calc(100vw - 48px));max-height:min(70vh,640px);display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-panel);overflow:hidden;box-shadow:var(--dsw-elevation-prominent)}
-.rcx-promptCardHead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.rcx-promptCardTitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary)}
-.rcx-promptCardBody{flex:1;overflow:auto;padding:12px 14px;font-size:12px;line-height:18px;font-family:ui-monospace,monospace;white-space:pre-wrap;color:var(--dsw-alias-label-secondary)}
-.rcx-promptCardFoot{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:14px}
-.rcx-promptCopy{margin-left:auto}
-/* Hosted main-panel mode (sidebar.panellist + main slots): the panel renders
-   as a native page (.docs/native-page-template.md) — transparent over the main
-   column's bg-base, a 960px centered column, pageHead anatomy, and a 32px
-   section rhythm; the dialog grammar above styles real overlays only. */
-.rcx-main{height:100%;overflow:auto;box-sizing:border-box;padding:0 clamp(24px,4vw,48px) 48px;display:flex;justify-content:center;align-items:flex-start}
-.rcx-main .rcx-scrim{position:static;z-index:auto;background:0 0;backdrop-filter:none;padding:0;padding-top:0;display:flex;flex-direction:column;width:100%;max-width:960px;height:100%}
-.rcx-main .rcx-card{flex:1;min-height:0;max-height:none;border:none;background:0 0;border-radius:0;box-shadow:none;gap:32px}
-.rcx-main .rcx-closeBtn{display:none}
-/* Hosted page head — native pageHead anatomy (as on the Plugins/Tasks pages):
-   title + intro column left, path/close actions right, 28px top clearance. */
-.rcx-pageHead{justify-content:space-between;align-items:flex-start;gap:16px;padding:28px 0 0}
+		// Wave-2 stylesheet: layout glue only (page column, pageHead anatomy,
+		// group structure, 32px section rhythm — .docs/native-page-template.md).
+		// Every control is a dsh-client-ui-primitives component (Button, Input,
+		// SegmentedTabs, Tag, PathLabel, Modal); the plain <textarea>/<select>
+		// below are the rule-4 elements with no native equivalent, styled on
+		// --dsw-alias-* tokens.
+		const css = `.rcx-main{height:100%;overflow:auto;box-sizing:border-box;padding:0 clamp(24px,4vw,48px) 48px;display:flex;justify-content:center;align-items:flex-start}
+.rcx-column{width:100%;max-width:960px;display:flex;flex-direction:column;gap:32px}
+.rcx-pageHead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-top:28px}
 [data-platform=darwin] .rcx-pageHead{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}
-.rcx-pageHead .rcx-titleRow{flex:1;min-width:0;width:auto;padding:0;flex-direction:column;align-items:flex-start;gap:0}
-.rcx-pageHead .rcx-title{font-size:20px;font-weight:500;line-height:28px;margin:0}
-.rcx-pageHead .rcx-intro{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}
-.rcx-headBar{flex:0 1 auto;min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:16px}
-/* Hosted editor block — native in-page card: radius-xl, border-l1, layer-1
-   fill, no drop shadow; the page's 32px rhythm provides the spacing. */
-.rcx-main .rcx-editorWrap{padding:0;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-1)}
-.rcx-main .rcx-editor{background:0 0}`;
+.rcx-titleCol{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.rcx-title{margin:0;font-size:20px;font-weight:500;line-height:28px;color:var(--dsw-alias-label-primary)}
+.rcx-intro{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}
+.rcx-headBar{flex:0 1 auto;min-width:220px;max-width:60%;display:flex;justify-content:flex-end;align-items:center;gap:12px}
+.rcx-pathLabel{cursor:pointer;min-width:0}
+.rcx-pathInput{flex:1;min-width:180px}
+.rcx-tabsRow{display:flex;align-items:center;gap:16px}
+.rcx-tabs{flex:0 1 420px;min-width:280px}
+.rcx-tabHint{flex:1;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-tabPanel{display:flex;flex-direction:column;gap:16px}
+.rcx-group{display:flex;flex-direction:column;gap:8px}
+.rcx-groupHead{display:flex;align-items:baseline;gap:8px}
+.rcx-groupTitle{margin:0;font-size:14px;font-weight:500;line-height:22px;color:var(--dsw-alias-label-primary)}
+.rcx-groupHint{flex:1;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-list{display:flex;flex-direction:column;gap:2px}
+.rcx-promptList{max-height:200px;overflow-y:auto}
+.rcx-row{display:flex;align-items:center;gap:8px;padding:4px 8px;margin:0 -8px;border-radius:var(--dsw-radius-md)}
+.rcx-row:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.rcx-rowClick{cursor:pointer}
+.rcx-rowLabel{flex:1;min-width:0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-rowMeta{flex:none;color:var(--dsw-alias-label-caption);font-size:12px;line-height:16px;font-variant-numeric:tabular-nums}
+.rcx-emptyHint{padding:8px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}
+.rcx-select{width:100%;max-width:480px;height:32px;border:0.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;line-height:22px;padding:0 8px}
+.rcx-select:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
+.rcx-editorCard{display:flex;min-height:360px;border:0.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-1)}
+.rcx-editorCard:focus-within{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
+.rcx-editor{flex:1;min-height:0;width:100%;resize:none;border:none;outline:none;background:transparent;color:var(--dsw-alias-label-primary);font-family:ui-monospace,monospace;font-size:12.5px;line-height:19px;padding:10px 16px}
+.rcx-footer{display:flex;align-items:center;gap:12px}
+.rcx-status{flex:1;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-statusOk{color:var(--dsw-alias-state-success-primary)}
+.rcx-statusErr{color:var(--dsw-alias-state-error-primary)}
+.rcx-promptForm{display:flex;flex-direction:column;gap:8px}
+.rcx-promptBody{min-height:140px;resize:vertical;border:0.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;font-family:ui-monospace,monospace;padding:8px 10px}
+.rcx-promptBody:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
+.rcx-formActions{display:flex;align-items:center;gap:8px}
+.rcx-formStatus{flex:1;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-previewModal{width:min(560px,100%)}
+.rcx-previewBody{max-height:min(48vh,420px);overflow:auto;font-family:ui-monospace,monospace;font-size:12px;line-height:18px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary)}
+.rcx-previewHint{margin-right:auto;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}`;
 		const tagId = "dsh-rich-context/panel.css";
 		if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css="${tagId}"]`) === null) {
 			const tag = document.createElement("style");
@@ -241,8 +215,8 @@ window.__ModuleLoader__.load({
 		// Sanctioned surface (0.1.6+): a sidebar.panellist row plus a keyed main
 		// panel — the same pair the built-in Plugins entry registers. The shell
 		// owns the row chrome (icon button, hover, 500ms tooltip, active state);
-		// the overlay DOM is hosted inside the main area instead of grafting
-		// foreign nodes into React-managed sidebar rows.
+		// the page itself is a React island built from the app's own primitives
+		// (.docs/native-components.md), mounted by the shell through the main slot.
 		const PANEL_ID = "rich-context";
 		const ICON_PATHS = '<path d="M3 2.5h7.5L13 5v8.5H3z"/><path d="M5.5 7h5M5.5 9.5h5M5.5 12h3"/>';
 		function PanelIcon({ size }) {
@@ -255,445 +229,389 @@ window.__ModuleLoader__.load({
 			});
 		}
 		function MainPanel() {
-			return jsx("div", {
-				className: "rcx-main",
-				ref: (node) => {
-					if (node === null) return;
-					const panel = createPanel(() => {}, true);
-					panel.classList.add("rcx-hosted");
-					node.append(panel);
-				},
-			});
+			return jsx(ContextPage, null);
 		}
 		//#endregion
 		//#region lib/panel.js
-//#region lib/panel.js
 		/**
-		 * The overlay panel — pure DOM, no React. Two tabs (Global / Workspace)
-		 * + custom path routing, monospace editor, save.
+		 * The hosted page — a React tree of the app's primitives: SegmentedTabs
+		 * for Global/Workspace/Prompts, PathLabel + Input for the click-to-edit
+		 * target path, Button for every action, Tag for the accent markers, and
+		 * Modal for the prompt preview. The editor and the workspace picker are
+		 * the rule-4 plain elements (textarea/select). All fetch/state logic is
+		 * the pre-rewrite behavior, ported as-is.
 		 */
-		function createPanel(onClose, hosted) {
-			// --- State ---
-			let tab = "global";
-			let workspace = "";
-			let customPath = null;
-			let content = "";
-			let saved = null;
-			let busy = false;
-			let state = null;
-			let statusEl, pathEl, editorEl, saveBtnEl, tabHintEl, pickerEl, selectEl;
+		function ContextPage() {
+			const [tab, setTab] = useState("global");
+			const [workspace, setWorkspace] = useState("");
+			const [customPath, setCustomPath] = useState(null);
+			const [content, setContent] = useState("");
+			const [saved, setSaved] = useState(null);
+			const [busy, setBusy] = useState(false);
+			const [state, setState] = useState(null);
+			const [status, setStatus] = useState(null);
+			const [pathEditing, setPathEditing] = useState(false);
+			const [pathDraft, setPathDraft] = useState("");
+			const [sources, setSources] = useState(null);
+			const [reloadKey, setReloadKey] = useState(0);
+			const pathInputRef = useRef(null);
 
-			// --- Helpers ---
-			const setStatus = (kind, text) => {
-				statusEl.textContent = text ?? "";
-				statusEl.className = kind === "error" ? "rcx-status rcx-statusErr" : kind === "ok" ? "rcx-status rcx-statusOk" : "rcx-status";
-			};
-			const updateDirty = () => {
-				const dirty = content !== (saved ?? "");
-				saveBtnEl.disabled = busy || !dirty || (tab === "workspace" && workspace === "" && customPath === null);
-				saveBtnEl.className = dirty ? "rcx-saveBtn rcx-saveDirty" : "rcx-saveBtn";
-				if (!dirty && statusEl.className.indexOf("Err") === -1) statusEl.textContent = "";
-				else if (dirty && statusEl.textContent === "") statusEl.textContent = t("action.dirty");
-			};
-			const updatePath = () => {
-				const p = customPath !== null ? customPath : tab === "global" ? (state?.globalPath ?? "~/.dsh/AGENTS.md") : workspace !== "" ? `${workspace}/AGENTS.md` : "";
-				pathEl.textContent = p;
-			};
-			const loadFile = () => {
-				const scope = customPath !== null ? "custom" : tab;
-				// No workspace picked yet: nothing to read — a fetch here would
-				// 400 on the empty path and leave a stale error on the status line.
-				if (scope === "workspace" && workspace === "") { editorEl.value = ""; content = ""; saved = ""; updateDirty(); updatePath(); return; }
+			const scope = customPath !== null ? "custom" : tab;
+			const path = customPath !== null ? customPath
+				: tab === "global" ? (state?.globalPath ?? "~/.dsh/AGENTS.md")
+				: workspace !== "" ? `${workspace}/AGENTS.md` : "";
+			const dirty = content !== (saved ?? "");
+			const canSave = !busy && dirty && !(tab === "workspace" && workspace === "" && customPath === null);
+			const statusView = status ?? (dirty ? { kind: "dirty", text: t("action.dirty") } : { kind: null, text: "" });
+
+			// Panel bootstrap: workspace list + global path from the same /state
+			// route the pure-DOM builder read once at build time.
+			useEffect(() => {
+				let cancelled = false;
+				fetchState().then((body) => {
+					if (cancelled || body.ok !== true) return;
+					setState(body);
+				}).catch(() => {});
+				return () => { cancelled = true; };
+			}, []);
+
+			// File loading follows the active target exactly like the old
+			// loadFile(): tab switches, workspace picks, custom-path commits, and
+			// default-source switches each refetch. A workspace tab with no pick
+			// shows an empty editor instead of a guaranteed-failing fetch.
+			useEffect(() => {
+				if (tab === "prompts") return;
+				let cancelled = false;
+				if (scope === "workspace" && workspace === "") {
+					setContent("");
+					setSaved("");
+					setStatus(null);
+					return;
+				}
+				setStatus(null);
 				fetchFile(scope, workspace, customPath).then((body) => {
+					if (cancelled) return;
 					if (body.ok !== true) throw new Error(body.error);
-					content = body.content ?? "";
-					saved = content;
-					editorEl.value = content;
-					updateDirty();
-					updatePath();
-				}).catch((cause) => setStatus("error", `${t("error.generic")}: ${cause.message}`));
-			};
-
-			// --- Build DOM ---
-			const scrim = document.createElement("div");
-			scrim.className = "rcx-scrim";
-			scrim.addEventListener("click", (event) => { if (event.target === scrim) onClose(); });
-
-			const card = document.createElement("div");
-			card.className = "rcx-card";
-			card.setAttribute("aria-label", t("panel.title"));
-
-			// Header
-			const head = document.createElement("div");
-			head.className = hosted === true ? "rcx-head rcx-pageHead" : "rcx-head";
-			const titleRow = document.createElement("div");
-			titleRow.className = "rcx-titleRow";
-			const title = document.createElement("span");
-			title.className = "rcx-title";
-			title.textContent = hosted === true ? t("panel.pageTitle") : t("panel.title");
-			pathEl = document.createElement("span");
-			pathEl.className = "rcx-path";
-			pathEl.title = t("entry.tooltip");
-			pathEl.addEventListener("click", () => {
-				const input = document.createElement("input");
-				input.type = "text";
-				input.className = "rcx-pathInput";
-				input.value = pathEl.textContent;
-				input.spellcheck = false;
-				pathEl.replaceWith(input);
-				input.focus();
-				input.select();
-				const commit = () => {
-					const trimmed = input.value.trim();
-					const absoluteish = trimmed.startsWith("/") || /^[A-Za-z]:[\\/]/.test(trimmed);
-					if (absoluteish && trimmed !== pathEl.textContent) {
-						customPath = trimmed;
-					} else if (!absoluteish) {
-						customPath = null;
-					}
-					input.replaceWith(pathEl);
-					updatePath();
-					if (customPath !== null) loadFile();
-				};
-				input.addEventListener("blur", commit);
-				input.addEventListener("keydown", (event) => {
-					event.stopPropagation();
-					if (event.key === "Enter") { event.preventDefault(); commit(); }
-					if (event.key === "Escape") { event.stopPropagation(); input.replaceWith(pathEl); updatePath(); }
+					setContent(body.content ?? "");
+					setSaved(body.content ?? "");
+				}).catch((cause) => {
+					if (!cancelled) setStatus({ kind: "error", text: `${t("error.generic")}: ${cause.message}` });
 				});
-			});
-			const closeBtn = document.createElement("button");
-			closeBtn.type = "button";
-			closeBtn.className = "rcx-closeBtn";
-			closeBtn.setAttribute("aria-label", t("action.close"));
-			closeBtn.textContent = "\u00d7";
-			closeBtn.addEventListener("click", onClose);
-			if (hosted === true) {
-				// Native pageHead anatomy: title + intro column left, path/close
-				// actions right (see .docs/native-page-template.md).
-				const intro = document.createElement("span");
-				intro.className = "rcx-intro";
-				intro.textContent = t("panel.pageIntro");
-				titleRow.append(title, intro);
-				const headBar = document.createElement("div");
-				headBar.className = "rcx-headBar";
-				headBar.append(pathEl, closeBtn);
-				head.append(titleRow, headBar);
-			} else {
-				titleRow.append(title, pathEl, closeBtn);
-				head.append(titleRow);
-			}
-			card.append(head);
+				return () => { cancelled = true; };
+			}, [scope, tab, workspace, customPath, reloadKey]);
 
-			// Tabs
-			const tabs = document.createElement("div");
-			tabs.className = "rcx-tabs";
-			const tabGlobal = document.createElement("button");
-			tabGlobal.type = "button";
-			tabGlobal.className = "rcx-tab rcx-tabOn";
-			tabGlobal.textContent = t("tab.global");
-			const tabWorkspace = document.createElement("button");
-			tabWorkspace.type = "button";
-			tabWorkspace.className = "rcx-tab";
-			tabWorkspace.textContent = t("tab.workspace");
-			const tabPrompts = document.createElement("button");
-			tabPrompts.type = "button";
-			tabPrompts.className = "rcx-tab";
-			tabPrompts.textContent = t("tab.prompts");
-			tabHintEl = document.createElement("span");
-			tabHintEl.className = "rcx-tabHint";
-			const setTab = (next) => {
-				tab = next;
-				customPath = null;
-				tabGlobal.className = next === "global" ? "rcx-tab rcx-tabOn" : "rcx-tab";
-				tabWorkspace.className = next === "workspace" ? "rcx-tab rcx-tabOn" : "rcx-tab";
-				tabPrompts.className = next === "prompts" ? "rcx-tab rcx-tabOn" : "rcx-tab";
-				tabHintEl.textContent = next === "global" ? t("tab.global.hint") : next === "prompts" ? t("tab.prompts.hint") : t("tab.workspace.hint");
-				pickerEl.style.display = next === "workspace" ? "" : "none";
-				sourcesEl.style.display = next === "global" ? "" : "none";
-				editorWrap.style.display = next === "prompts" ? "none" : "";
-				promptsEl.style.display = next === "prompts" ? "" : "none";
-				if (next === "prompts") loadPrompts();
-				else loadFile();
-			};
-			tabGlobal.addEventListener("click", () => setTab("global"));
-			tabWorkspace.addEventListener("click", () => setTab("workspace"));
-			tabPrompts.addEventListener("click", () => setTab("prompts"));
-			tabs.append(tabGlobal, tabWorkspace, tabPrompts, tabHintEl);
-			card.append(tabs);
-
-			// Sources section (Global tab only) — scan + switch AGENTS.md default
-			const sourcesEl = document.createElement("div");
-			sourcesEl.className = "rcx-sources";
-			sourcesEl.style.display = "none"; // hidden by default, shown on Global tab
-			const sourcesHead = document.createElement("div");
-			sourcesHead.className = "rcx-sourcesHead";
-			const sourcesTitle = document.createElement("span");
-			sourcesTitle.className = "rcx-sourcesTitle";
-			sourcesTitle.textContent = t("sources.title");
-			const sourcesHint = document.createElement("span");
-			sourcesHint.className = "rcx-sourcesHint";
-			sourcesHint.textContent = t("sources.hint");
-			sourcesHead.append(sourcesTitle, sourcesHint);
-			const sourceList = document.createElement("div");
-			sourceList.className = "rcx-sourceList";
-			sourcesEl.append(sourcesHead, sourceList);
-			card.append(sourcesEl);
-
+			// Source scan for the Global tab (same /sources route as before).
 			const loadSources = () => {
 				fetch(`${API}/sources`).then((res) => res.json()).then((body) => {
-					if (body.ok !== true) return;
-					sourceList.innerHTML = "";
-					for (const source of body.sources) {
-						if (!source.exists) continue;
-						const row = document.createElement("div");
-						row.className = body.currentDefault === source.path ? "rcx-sourceRow rcx-sourceOn" : "rcx-sourceRow";
-						row.title = source.path;
-						const label = document.createElement("span");
-						label.className = "rcx-sourceLabel";
-						label.textContent = source.label;
-						const meta = document.createElement("span");
-						meta.className = "rcx-sourceMeta";
-						meta.textContent = `${source.lines} ${t("sources.lines")}`;
-						row.append(label, meta);
-						if (body.currentDefault === source.path) {
-							const badge = document.createElement("span");
-							badge.className = "rcx-sourceMeta";
-							badge.style.color = "var(--dsw-alias-state-business-primary)";
-							badge.textContent = "\u2713 " + t("sources.current");
-							row.append(badge);
-						} else if (!source.path.includes("/.dsh/")) {
-							const btn = document.createElement("button");
-							btn.type = "button";
-							btn.className = "rcx-sourceBtn";
-							btn.textContent = t("sources.set_default");
-							btn.addEventListener("click", (event) => {
-								event.stopPropagation();
-								fetch(`${API}/default`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ target: source.path }) })
-									.then((res) => res.json())
-									.then(() => { loadSources(); loadFile(); });
-							});
-							row.append(btn);
-						}
-						sourceList.append(row);
-					}
-					// Reset button if a symlink is active
-					if (body.currentDefault !== null) {
-						const resetRow = document.createElement("div");
-						resetRow.className = "rcx-sourceRow";
-						const resetBtn = document.createElement("button");
-						resetBtn.type = "button";
-						resetBtn.className = "rcx-sourceBtn";
-						resetBtn.textContent = t("sources.reset");
-						resetBtn.addEventListener("click", () => {
-							fetch(`${API}/default`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ target: "", reset: true }) })
-								.then((res) => res.json())
-								.then(() => { loadSources(); loadFile(); });
-						});
-						resetRow.append(resetBtn);
-						sourceList.append(resetRow);
-					}
+					if (body.ok === true) setSources(body);
 				}).catch(() => {});
 			};
-			loadSources();
-
-			// Prompts tab section: list + inline editor, one markdown file per
-			// prompt on the host. The chat-side surfaces (@ trigger, dock row)
-			// read the same cache this editor invalidates.
-			let promptsEl = document.createElement("div");
-			promptsEl.className = "rcx-prompts";
-			promptsEl.style.display = "none";
-			const promptsHead = document.createElement("div");
-			promptsHead.className = "rcx-sourcesHead";
-			const promptsTitle = document.createElement("span");
-			promptsTitle.className = "rcx-sourcesTitle";
-			promptsTitle.textContent = t("tab.prompts");
-			const promptsNew = document.createElement("button");
-			promptsNew.type = "button";
-			promptsNew.className = "rcx-sourceBtn";
-			promptsNew.textContent = t("prompts.new");
-			promptsHead.append(promptsTitle, promptsNew);
-			const promptList = document.createElement("div");
-			promptList.className = "rcx-promptList";
-			const promptForm = document.createElement("div");
-			promptForm.className = "rcx-promptForm";
-			const promptName = document.createElement("input");
-			promptName.className = "rcx-promptNameInput";
-			promptName.placeholder = t("prompts.name");
-			promptName.spellcheck = false;
-			const promptDesc = document.createElement("input");
-			promptDesc.className = "rcx-promptNameInput";
-			promptDesc.placeholder = t("prompts.description");
-			promptDesc.spellcheck = false;
-			const promptBody = document.createElement("textarea");
-			promptBody.className = "rcx-promptBody";
-			promptBody.placeholder = t("prompts.body");
-			promptBody.spellcheck = false;
-			const promptActions = document.createElement("div");
-			promptActions.className = "rcx-promptActions";
-			const promptSave = document.createElement("button");
-			promptSave.type = "button";
-			promptSave.className = "rcx-sourceBtn";
-			promptSave.textContent = t("prompts.save");
-			const promptDelete = document.createElement("button");
-			promptDelete.type = "button";
-			promptDelete.className = "rcx-sourceBtn";
-			promptDelete.textContent = t("prompts.delete");
-			const promptStatus = document.createElement("span");
-			promptStatus.className = "rcx-sourceMeta";
-			promptActions.append(promptDelete, promptSave, promptStatus);
-			promptForm.append(promptName, promptDesc, promptBody, promptActions);
-			promptsEl.append(promptsHead, promptList, promptForm);
-			card.append(promptsEl);
-
-			let selectedSlug = null;
-			const setPromptStatus = (text, isError) => {
-				promptStatus.textContent = text ?? "";
-				promptStatus.style.color = isError === true ? "var(--dsw-alias-state-error-primary)" : "";
+			useEffect(() => { loadSources(); }, []);
+			const setDefaultSource = (target, reset) => {
+				fetch(`${API}/default`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(reset === true ? { target: "", reset: true } : { target }) })
+					.then((res) => res.json())
+					.then(() => { loadSources(); setReloadKey((key) => key + 1); });
 			};
-			const clearPromptForm = () => {
-				selectedSlug = null;
-				promptName.value = "";
-				promptDesc.value = "";
-				promptBody.value = "";
-				promptDelete.style.display = "none";
-				setPromptStatus("");
-			};
-			const loadPrompts = () => {
-				getPrompts(true).then((list) => {
-					promptList.innerHTML = "";
-					if (list.length === 0) {
-						const emptyRow = document.createElement("div");
-						emptyRow.className = "rcx-sourceLabel";
-						emptyRow.style.padding = "10px 14px";
-						emptyRow.textContent = t("prompts.empty");
-						promptList.append(emptyRow);
-					}
-					for (const prompt of list) {
-						const row = document.createElement("div");
-						row.className = "rcx-promptRow" + (prompt.slug === selectedSlug ? " rcx-sourceOn" : "");
-						row.title = prompt.description || prompt.body.replace(/\s+/g, " ").slice(0, 120);
-						const label = document.createElement("span");
-						label.className = "rcx-sourceLabel";
-						label.textContent = prompt.name;
-						const meta = document.createElement("span");
-						meta.className = "rcx-sourceMeta";
-						meta.textContent = `@${prompt.slug}`;
-						row.append(label, meta);
-						row.addEventListener("click", () => {
-							selectedSlug = prompt.slug;
-							promptName.value = prompt.slug;
-							promptDesc.value = prompt.description ?? "";
-							promptBody.value = prompt.body;
-							promptDelete.style.display = "";
-							setPromptStatus("");
-							for (const other of promptList.children) other.classList.remove("rcx-sourceOn");
-							row.classList.add("rcx-sourceOn");
-						});
-						promptList.append(row);
-					}
-				}).catch(() => {});
-			};
-			promptsNew.addEventListener("click", () => { clearPromptForm(); promptName.focus(); });
-			promptDelete.addEventListener("click", () => {
-				if (selectedSlug === null || !window.confirm(t("prompts.confirmDelete"))) return;
-				mutatePrompt({ op: "delete", slug: selectedSlug }).then((body) => {
-					invalidatePrompts();
-					if (body.ok !== true) { setPromptStatus(body.error ?? t("error.generic"), true); return; }
-					clearPromptForm();
-					loadPrompts();
-				});
-			});
-			promptSave.addEventListener("click", () => {
-				const slug = promptName.value.trim().toLowerCase().replaceAll(" ", "-");
-				if (slug === "" || promptBody.value.trim() === "") { setPromptStatus(t("error.generic"), true); return; }
-				mutatePrompt({ op: "save", slug, description: promptDesc.value, body: promptBody.value }).then((body) => {
-					invalidatePrompts();
-					if (body.ok !== true) { setPromptStatus(body.error ?? t("error.generic"), true); return; }
-					selectedSlug = slug;
-					promptName.value = slug;
-					promptDelete.style.display = "";
-					setPromptStatus(t("prompts.updated"));
-					loadPrompts();
-				});
-			});
 
-			// Workspace picker
-			pickerEl = document.createElement("div");
-			pickerEl.className = "rcx-picker";
-			pickerEl.style.display = "none";
-			selectEl = document.createElement("select");
-			selectEl.className = "rcx-select";
-			selectEl.addEventListener("change", () => { workspace = selectEl.value; loadFile(); });
-			pickerEl.append(selectEl);
-			card.append(pickerEl);
-
-			// Editor
-			const editorWrap = document.createElement("div");
-			editorWrap.className = "rcx-editorWrap";
-			editorEl = document.createElement("textarea");
-			editorEl.className = "rcx-editor";
-			editorEl.spellcheck = false;
-			editorEl.placeholder = t("editor.placeholder");
-			editorEl.addEventListener("input", () => { content = editorEl.value; updateDirty(); });
-			editorEl.addEventListener("keydown", (event) => {
-				if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); saveBtnEl.click(); }
-				if (event.key === "Escape") { event.stopPropagation(); onClose(); }
-			});
-			editorWrap.append(editorEl);
-			card.append(editorWrap);
-
-			// Footer
-			const footer = document.createElement("div");
-			footer.className = "rcx-footer";
-			statusEl = document.createElement("span");
-			statusEl.className = "rcx-status";
-			saveBtnEl = document.createElement("button");
-			saveBtnEl.type = "button";
-			saveBtnEl.className = "rcx-saveBtn";
-			saveBtnEl.textContent = t("action.save");
-			saveBtnEl.disabled = true;
-			saveBtnEl.addEventListener("click", () => {
-				busy = true;
-				saveBtnEl.disabled = true;
+			const save = () => {
+				if (!canSave) return;
+				setBusy(true);
 				const body = customPath !== null ? { scope: "custom", path: customPath, content } : { scope: tab, workspace, content };
 				saveFile(body).then((result) => {
 					if (result.ok !== true) throw new Error(result.error);
-					saved = content;
-					setStatus("ok", `${t("action.saved")} — ${customPath !== null ? result.path : tab === "global" ? t("effect.global") : t("effect.workspace")}`);
+					setSaved(content);
+					setStatus({ kind: "ok", text: `${t("action.saved")} — ${customPath !== null ? result.path : tab === "global" ? t("effect.global") : t("effect.workspace")}` });
 				}).catch((cause) => {
-					setStatus("error", `${t("error.generic")}: ${cause.message}`);
-				}).finally(() => {
-					busy = false;
-					updateDirty();
-				});
+					setStatus({ kind: "error", text: `${t("error.generic")}: ${cause.message}` });
+				}).finally(() => setBusy(false));
+			};
+
+			// Click-to-edit path: PathLabel swaps to a native Input; Enter (or
+			// blur) commits, Escape cancels — the pre-rewrite contract. An
+			// absolute-looking path becomes the custom target; anything else
+			// drops back to the tab default.
+			const commitPathEdit = () => {
+				if (pathEditing === false) return;
+				const trimmed = pathDraft.trim();
+				const absoluteish = trimmed.startsWith("/") || /^[A-Za-z]:[\\/]/.test(trimmed);
+				if (absoluteish && trimmed !== path) setCustomPath(trimmed);
+				else if (!absoluteish) setCustomPath(null);
+				setPathEditing(false);
+			};
+			useEffect(() => {
+				if (pathEditing === false || pathInputRef.current === null) return;
+				pathInputRef.current.focus();
+				pathInputRef.current.select();
+			}, [pathEditing]);
+
+			const tabItems = [
+				{ id: "rcx-tab-global", value: "global", label: t("tab.global"), panelId: "rcx-panel-global" },
+				{ id: "rcx-tab-workspace", value: "workspace", label: t("tab.workspace"), panelId: "rcx-panel-workspace" },
+				{ id: "rcx-tab-prompts", value: "prompts", label: t("tab.prompts"), panelId: "rcx-panel-prompts" },
+			];
+			const tabHint = tab === "global" ? t("tab.global.hint") : tab === "prompts" ? t("tab.prompts.hint") : t("tab.workspace.hint");
+
+			return jsx("div", {
+				className: "rcx-main",
+				children: jsxs("div", {
+					className: "rcx-column",
+					children: [
+						// Native pageHead anatomy: title + intro column left, path
+						// action right, 28px top clearance (+darwin rule).
+						jsxs("header", { className: "rcx-pageHead", children: [
+							jsxs("div", { className: "rcx-titleCol", children: [
+								jsx("h1", { className: "rcx-title", children: t("panel.pageTitle") }),
+								jsx("p", { className: "rcx-intro", children: t("panel.pageIntro") }),
+							] }),
+							jsxs("div", { className: "rcx-headBar", children: [
+								pathEditing
+									? jsx(_deepseek_ai_dsh_client_ui_primitives.Input, {
+										ref: pathInputRef,
+										className: "rcx-pathInput",
+										value: pathDraft,
+										spellCheck: false,
+										onChange: (event) => setPathDraft(event.currentTarget.value),
+										onKeyDown: (event) => {
+											event.stopPropagation();
+											if (event.key === "Enter") { event.preventDefault(); commitPathEdit(); }
+											if (event.key === "Escape") { event.preventDefault(); setPathEditing(false); }
+										},
+										onBlur: commitPathEdit,
+									})
+									: jsx(_deepseek_ai_dsh_client_ui_primitives.PathLabel, {
+										path,
+										className: "rcx-pathLabel",
+										role: "button",
+										tabIndex: 0,
+										onClick: () => { setPathDraft(path); setPathEditing(true); },
+										onKeyDown: (event) => {
+											if (event.key === "Enter" || event.key === " ") {
+												event.preventDefault();
+												setPathDraft(path);
+												setPathEditing(true);
+											}
+										},
+									}),
+							] }),
+						] }),
+						jsxs("div", { className: "rcx-tabsRow", children: [
+							jsx(_deepseek_ai_dsh_client_ui_primitives.SegmentedTabs, {
+								className: "rcx-tabs",
+								items: tabItems,
+								value: tab,
+								label: t("tabs.label"),
+								onChange: (next) => { setTab(next); setCustomPath(null); setPathEditing(false); },
+							}),
+							jsx("span", { className: "rcx-tabHint", children: tabHint }),
+						] }),
+						tab === "prompts"
+							? jsx("div", { id: "rcx-panel-prompts", className: "rcx-tabPanel", children: jsx(PromptsSection, null) })
+							: jsxs("div", { id: `rcx-panel-${tab}`, className: "rcx-tabPanel", children: [
+								tab === "global" ? jsx(SourcesSection, { sources, onSetDefault: setDefaultSource }) : null,
+								tab === "workspace" ? jsx("select", {
+									className: "rcx-select",
+									value: workspace,
+									onChange: (event) => setWorkspace(event.currentTarget.value),
+									children: [
+										jsx("option", { value: "", disabled: true, children: t("workspace.placeholder") }),
+										...(state?.workspaces ?? []).map((slug) => jsx("option", { value: slug, children: slug }, slug)),
+									],
+								}) : null,
+								jsxs("div", { className: "rcx-editorCard", children: [
+									jsx("textarea", {
+										className: "rcx-editor",
+										spellCheck: false,
+										placeholder: t("editor.placeholder"),
+										value: content,
+										onChange: (event) => { setContent(event.currentTarget.value); if (status !== null) setStatus(null); },
+										onKeyDown: (event) => {
+											if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); save(); }
+											if (event.key === "Escape") event.stopPropagation();
+										},
+									}),
+								] }),
+								jsxs("div", { className: "rcx-footer", children: [
+									jsx("span", {
+										className: "rcx-status" + (statusView.kind === "ok" ? " rcx-statusOk" : statusView.kind === "error" ? " rcx-statusErr" : ""),
+										role: "status",
+										children: statusView.text,
+									}),
+									jsx(_deepseek_ai_dsh_client_ui_primitives.Button, { variant: "primary", disabled: !canSave, onClick: save, children: t("action.save") }),
+								] }),
+							] }),
+					],
+				}),
 			});
-			footer.append(statusEl, saveBtnEl);
-			card.append(footer);
+		}
 
-			scrim.append(card);
+		/** AGENTS.md source list (Global tab): native list rows with hover, the
+		 *  current default marked by an accent Tag, switch/reset through Buttons. */
+		function SourcesSection({ sources, onSetDefault }) {
+			const current = sources?.currentDefault ?? null;
+			const rows = (sources?.sources ?? []).filter((source) => source.exists === true);
+			return jsxs("section", { className: "rcx-group", children: [
+				jsxs("div", { className: "rcx-groupHead", children: [
+					jsx("h2", { className: "rcx-groupTitle", children: t("sources.title") }),
+					jsx("span", { className: "rcx-groupHint", children: t("sources.hint") }),
+				] }),
+				jsxs("div", { className: "rcx-list", children: [
+					...rows.map((source) => jsxs("div", { className: "rcx-row", title: source.path, children: [
+						jsx("span", { className: "rcx-rowLabel", children: source.label }),
+						jsx("span", { className: "rcx-rowMeta", children: `${source.lines} ${t("sources.lines")}` }),
+						current === source.path
+							? jsx(_deepseek_ai_dsh_client_ui_primitives.Tag, { tone: "info", children: t("sources.current") })
+							: source.path.includes("/.dsh/")
+								? null
+								: jsx(_deepseek_ai_dsh_client_ui_primitives.Button, { size: "sm", onClick: () => onSetDefault(source.path), children: t("sources.set_default") }),
+					] }, source.path)),
+					current !== null ? jsx("div", { className: "rcx-row", children: jsx(_deepseek_ai_dsh_client_ui_primitives.Button, { size: "sm", onClick: () => onSetDefault(null, true), children: t("sources.reset") }) }, "rcx-sources-reset") : null,
+				] }),
+			] });
+		}
 
-			// --- Init ---
-			fetchState().then((body) => {
-				if (body.ok !== true) return;
-				state = body;
-				const placeholder = document.createElement("option");
-				placeholder.value = "";
-				placeholder.textContent = t("workspace.placeholder");
-				placeholder.disabled = true;
-				placeholder.selected = true;
-				selectEl.append(placeholder);
-				for (const slug of body.workspaces ?? []) {
-					const option = document.createElement("option");
-					option.value = slug;
-					option.textContent = slug;
-					selectEl.append(option);
-				}
-				loadFile();
-			}).catch(() => {});
-			setTab("global");
+		/** Prompts tab: list + inline editor, one markdown file per prompt on the
+		 *  host. Selection carries the accent through a Tag; the preview dialog is
+		 *  the native Modal. The chat-side surfaces (@ trigger) read the same
+		 *  cache this editor invalidates. */
+		function PromptsSection() {
+			const [list, setList] = useState([]);
+			const [selectedSlug, setSelectedSlug] = useState(null);
+			const [name, setName] = useState("");
+			const [description, setDescription] = useState("");
+			const [body, setBody] = useState("");
+			const [formStatus, setFormStatus] = useState(null);
+			const [version, setVersion] = useState(0);
+			const [previewSlug, setPreviewSlug] = useState(null);
+			const [copied, setCopied] = useState(false);
+			const nameRef = useRef(null);
 
-			return scrim;
+			useEffect(() => {
+				let cancelled = false;
+				getPrompts(true).then((prompts) => { if (!cancelled) setList(prompts); }).catch(() => {});
+				return () => { cancelled = true; };
+			}, [version]);
+
+			const clearForm = () => {
+				setSelectedSlug(null);
+				setName("");
+				setDescription("");
+				setBody("");
+				setFormStatus(null);
+			};
+			const selectPrompt = (prompt) => {
+				setSelectedSlug(prompt.slug);
+				setName(prompt.slug);
+				setDescription(prompt.description ?? "");
+				setBody(prompt.body);
+				setFormStatus(null);
+			};
+			const savePrompt = () => {
+				const slug = name.trim().toLowerCase().replaceAll(" ", "-");
+				if (slug === "" || body.trim() === "") { setFormStatus({ text: t("error.generic"), isError: true }); return; }
+				mutatePrompt({ op: "save", slug, description, body }).then((result) => {
+					invalidatePrompts();
+					if (result.ok !== true) { setFormStatus({ text: result.error ?? t("error.generic"), isError: true }); return; }
+					setSelectedSlug(slug);
+					setName(slug);
+					setFormStatus({ text: t("prompts.updated"), isError: false });
+					setVersion((key) => key + 1);
+				});
+			};
+			const deletePrompt = () => {
+				if (selectedSlug === null || !window.confirm(t("prompts.confirmDelete"))) return;
+				mutatePrompt({ op: "delete", slug: selectedSlug }).then((result) => {
+					invalidatePrompts();
+					if (result.ok !== true) { setFormStatus({ text: result.error ?? t("error.generic"), isError: true }); return; }
+					clearForm();
+					setVersion((key) => key + 1);
+				});
+			};
+
+			const preview = previewSlug === null ? null : list.find((prompt) => prompt.slug === previewSlug) ?? null;
+			useEffect(() => { setCopied(false); }, [previewSlug]);
+			const copyPreview = () => {
+				if (preview === null) return;
+				_deepseek_ai_dsh_client_ui_primitives.writeClipboard(preview.body).then((ok) => { if (ok) setCopied(true); });
+			};
+
+			return jsxs("section", { className: "rcx-group", children: [
+				jsxs("div", { className: "rcx-groupHead", children: [
+					jsx("h2", { className: "rcx-groupTitle", children: t("tab.prompts") }),
+					jsx(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						size: "sm",
+						icon: jsx(_deepseek_ai_dsh_client_ui_primitives.IconPlusOutlineRegular, { size: 14 }),
+						onClick: () => { clearForm(); if (nameRef.current !== null) nameRef.current.focus(); },
+						children: t("prompts.new"),
+					}),
+				] }),
+				jsxs("div", { className: "rcx-list rcx-promptList", children: list.length === 0
+					? [jsx("div", { className: "rcx-emptyHint", children: t("prompts.empty") }, "rcx-prompts-empty")]
+					: list.map((prompt) => jsxs("div", {
+						className: "rcx-row rcx-rowClick",
+						title: prompt.description || prompt.body.replace(/\s+/g, " ").slice(0, 120),
+						onClick: () => selectPrompt(prompt),
+						children: [
+							jsx("span", { className: "rcx-rowLabel", children: prompt.name }),
+							prompt.slug === selectedSlug
+								? jsx(_deepseek_ai_dsh_client_ui_primitives.Tag, { tone: "info", children: `@${prompt.slug}` })
+								: jsx("span", { className: "rcx-rowMeta", children: `@${prompt.slug}` }),
+							jsx(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								onClick: (event) => { event.stopPropagation(); setPreviewSlug(prompt.slug); },
+								children: t("prompts.preview"),
+							}),
+						],
+					}, prompt.slug)) }),
+				jsxs("div", { className: "rcx-promptForm", children: [
+					jsx(_deepseek_ai_dsh_client_ui_primitives.Input, {
+						ref: nameRef,
+						placeholder: t("prompts.name"),
+						spellCheck: false,
+						value: name,
+						onChange: (event) => setName(event.currentTarget.value),
+					}),
+					jsx(_deepseek_ai_dsh_client_ui_primitives.Input, {
+						placeholder: t("prompts.description"),
+						spellCheck: false,
+						value: description,
+						onChange: (event) => setDescription(event.currentTarget.value),
+					}),
+					jsx("textarea", {
+						className: "rcx-promptBody",
+						placeholder: t("prompts.body"),
+						spellCheck: false,
+						value: body,
+						onChange: (event) => setBody(event.currentTarget.value),
+					}),
+					jsxs("div", { className: "rcx-formActions", children: [
+						selectedSlug !== null ? jsx(_deepseek_ai_dsh_client_ui_primitives.Button, { size: "sm", onClick: deletePrompt, children: t("prompts.delete") }) : null,
+						jsx(_deepseek_ai_dsh_client_ui_primitives.Button, { variant: "primary", size: "sm", onClick: savePrompt, children: t("prompts.save") }),
+						formStatus !== null ? jsx("span", {
+							className: "rcx-formStatus" + (formStatus.isError === true ? " rcx-statusErr" : ""),
+							role: "status",
+							children: formStatus.text,
+						}) : null,
+					] }),
+				] }),
+				jsx(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+					open: preview !== null,
+					onClose: () => setPreviewSlug(null),
+					title: preview?.name ?? "",
+					closeLabel: t("action.close"),
+					description: preview?.description || undefined,
+					className: "rcx-previewModal",
+					footer: jsxs(react.Fragment, { children: [
+						jsx("span", { className: "rcx-previewHint", children: t("prompts.dockHint") }),
+						jsx(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							icon: jsx(_deepseek_ai_dsh_client_ui_primitives.IconCopyOutlineRegular, { size: 14 }),
+							onClick: copyPreview,
+							children: copied ? t("prompts.copied") : t("prompts.copy"),
+						}),
+					] }),
+					children: jsx("div", { className: "rcx-previewBody", children: preview?.body ?? "" }),
+				}),
+			] });
 		}
 		//#endregion
 		//#region lib/index.js
