@@ -229,7 +229,9 @@ window.__ModuleLoader__.load({
 			});
 		}
 		function MainPanel() {
-			return jsx(ContextPage, null);
+			// React 18's production jsx runtime reads config.key unguarded —
+			// props must be an object, never null.
+			return jsx(ContextPage, {});
 		}
 		//#endregion
 		//#region lib/panel.js
@@ -405,7 +407,7 @@ window.__ModuleLoader__.load({
 							jsx("span", { className: "rcx-tabHint", children: tabHint }),
 						] }),
 						tab === "prompts"
-							? jsx("div", { id: "rcx-panel-prompts", className: "rcx-tabPanel", children: jsx(PromptsSection, null) })
+							? jsx("div", { id: "rcx-panel-prompts", className: "rcx-tabPanel", children: jsx(PromptsSection, {}) })
 							: jsxs("div", { id: `rcx-panel-${tab}`, className: "rcx-tabPanel", children: [
 								tab === "global" ? jsx(SourcesSection, { sources, onSetDefault: setDefaultSource }) : null,
 								tab === "workspace" ? jsx("select", {
